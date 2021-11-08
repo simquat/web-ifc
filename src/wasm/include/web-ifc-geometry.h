@@ -242,14 +242,17 @@ namespace webifc
 					{
 						if (materialDefinitions.count(item.second) != 0)
 						{
-							auto& defs = materialDefinitions[item.second];
-							for (auto def : defs)
+							auto& defs = materialDefinitions.find(item.second);
+							if (defs != materialDefinitions.end())
 							{
-								bool success = GetColor(def.second, styledItemColor);
-								if (success)
+								for (auto def : defs->second)
 								{
-									hasColor = true;
-									break;
+									bool success = GetColor(def.second, styledItemColor);
+									if (success)
+									{
+										hasColor = true;
+										break;
+									}
 								}
 							}
 						}

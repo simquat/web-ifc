@@ -78,10 +78,21 @@ namespace webifc
 	{
 	public:
         IfcLoader(const LoaderSettings& s = {}):
-            _settings(s)
+            _settings(s),
+			_metaData(std::make_shared<IfcMetaData>())
         {
             
         }
+
+		IfcLoader(const IfcLoader& other)
+		{
+			_settings = other._settings;
+			_open = other._open;
+
+			// the tape and metadata are linked together with the other loader!
+			_tape = other._tape.GetReadOnlyCopy();
+			_metaData = other._metaData;
+		}
 
 		void PushDataToTape(void* data, size_t size)
 		{
@@ -89,48 +100,48 @@ namespace webifc
 		}
 
 		// this is lazy
-		std::unordered_map<uint32_t, std::vector<uint32_t>>& GetRelVoids()
+		const std::unordered_map<uint32_t, std::vector<uint32_t>>& GetRelVoids()
 		{
-			return _metaData._relVoids;
+			return _metaData->_relVoids;
 		}
 
 		// this is lazy
-		std::unordered_map<uint32_t, std::vector<uint32_t>>& GetRelVoidRels()
+		const std::unordered_map<uint32_t, std::vector<uint32_t>>& GetRelVoidRels()
 		{
-			return _metaData._relVoidRel;
+			return _metaData->_relVoidRel;
 		}
 
 		// this is lazy
-		std::unordered_map<uint32_t, std::vector<uint32_t>>& GetRelAggregates()
+		const std::unordered_map<uint32_t, std::vector<uint32_t>>& GetRelAggregates()
 		{
-			return _metaData._relAggregates;
+			return _metaData->_relAggregates;
 		}
 
 		// this is lazy
-		std::unordered_map<uint32_t, std::vector<std::pair<uint32_t, uint32_t>>>& GetStyledItems()
+		const std::unordered_map<uint32_t, std::vector<std::pair<uint32_t, uint32_t>>>& GetStyledItems()
 		{
-			return _metaData._styledItems;
+			return _metaData->_styledItems;
 		}
 
 		// this is lazy
-		std::unordered_map<uint32_t, std::vector<std::pair<uint32_t, uint32_t>>>& GetRelMaterials()
+		const std::unordered_map<uint32_t, std::vector<std::pair<uint32_t, uint32_t>>>& GetRelMaterials()
 		{
-			return _metaData._relMaterials;
+			return _metaData->_relMaterials;
 		}
 
 		// this is lazy
-		std::unordered_map<uint32_t, std::vector<std::pair<uint32_t, uint32_t>>>& GetMaterialDefinitions()
+		const std::unordered_map<uint32_t, std::vector<std::pair<uint32_t, uint32_t>>>& GetMaterialDefinitions()
 		{
-			return _metaData._materialDefinitions;
+			return _metaData->_materialDefinitions;
 		}
 
 		std::vector<uint32_t> GetExpressIDsWithType(uint32_t type)
 		{
-			auto& list = _metaData.ifcTypeToLineID[type];
+			auto& list = _metaData->ifcTypeToLineID[type];
 			std::vector<uint32_t> ret(list.size());
 
 			std::transform(list.begin(), list.end(), ret.begin(), [&](uint32_t lineID) {
-				return _metaData.lines[lineID].expressID;
+				return _metaData->lines[lineID].expressID;
 			});
 
 			return ret;
@@ -141,7 +152,7 @@ namespace webifc
             Tokenizer<TAPE_SIZE> tokenizer(_tape);
             uint32_t numLines = tokenizer.Tokenize(content);
 
-            Parser<TAPE_SIZE> parser(_tape, _metaData);
+            Parser<TAPE_SIZE> parser(_tape, *_metaData);
             parser.ParseTape(numLines);
 
 			PopulateRelVoidsMap();
@@ -275,7 +286,7 @@ namespace webifc
 					if (unitType == "LENGTHUNIT" && unitName == "METRE")
 					{
 						double prefix = ConvertPrefix(unitPrefix);
-						_metaData.linearScalingFactor = prefix;
+						_metaData->linearScalingFactor = prefix;
 					}
 				}
 			}
@@ -295,8 +306,8 @@ namespace webifc
 				uint32_t relatingBuildingElement = GetRefArgument();
 				uint32_t relatedOpeningElement = GetRefArgument();
 
-				_metaData._relVoids[relatingBuildingElement].push_back(relatedOpeningElement);
-				_metaData._relVoidRel[relatingBuildingElement].push_back(relVoidID);
+				_metaData->_relVoids[relatingBuildingElement].push_back(relatedOpeningElement);
+				_metaData->_relVoidRel[relatingBuildingElement].push_back(relVoidID);
 			}
 		}
 
@@ -317,7 +328,7 @@ namespace webifc
 				for (auto& aggregate : aggregates)
 				{
 					uint32_t aggregateID = GetRefArgument(aggregate);
-					_metaData._relAggregates[relatingBuildingElement].push_back(aggregateID);
+					_metaData->_relAggregates[relatingBuildingElement].push_back(aggregateID);
 				}
 			}
 		}
@@ -346,7 +357,7 @@ namespace webifc
 					for (auto& styleAssignment : styleAssignments)
 					{
 						uint32_t styleAssignmentID = GetRefArgument(styleAssignment);
-						_metaData._styledItems[representationItem].emplace_back(styledItemID, styleAssignmentID);
+						_metaData->_styledItems[representationItem].emplace_back(styledItemID, styleAssignmentID);
 					}
 				}
 			}
@@ -372,7 +383,7 @@ namespace webifc
 				for (auto& ifcRoot : RelatedObjects)
 				{
 					uint32_t ifcRootID = GetRefArgument(ifcRoot);
-					_metaData._relMaterials[ifcRootID].emplace_back(styledItemID, materialSelect);
+					_metaData->_relMaterials[ifcRootID].emplace_back(styledItemID, materialSelect);
 				}
 			}
 
@@ -394,7 +405,7 @@ namespace webifc
 				for (auto& representation : representations)
 				{
 					uint32_t representationID = GetRefArgument(representation);
-					_metaData._materialDefinitions[material].emplace_back(styledItemID, representationID);
+					_metaData->_materialDefinitions[material].emplace_back(styledItemID, representationID);
 				}
 			}
 		}
@@ -406,30 +417,30 @@ namespace webifc
 
         size_t GetNumLines()
         {
-            return _metaData.lines.size();
+            return _metaData->lines.size();
         }
 
 		std::vector<uint32_t>& GetLineIDsWithType(uint32_t type)
 		{
-			return _metaData.ifcTypeToLineID[type];
+			return _metaData->ifcTypeToLineID[type];
 		}
 
 		uint32_t CopyTapeForExpressLine(uint32_t expressID, uint8_t* dest)
 		{
-			uint32_t startOffset = _metaData.lines[_metaData.expressIDToLine[expressID]].tapeOffset;
-			uint32_t endOffset = _metaData.lines[_metaData.expressIDToLine[expressID]].tapeEnd;
+			uint32_t startOffset = _metaData->lines[_metaData->expressIDToLine[expressID]].tapeOffset;
+			uint32_t endOffset = _metaData->lines[_metaData->expressIDToLine[expressID]].tapeEnd;
 
 			return _tape.Copy(startOffset, endOffset, dest);
 		}
 
 		uint32_t ExpressIDToLineID(uint32_t expressID)
 		{
-			return _metaData.expressIDToLine[expressID];
+			return _metaData->expressIDToLine[expressID];
 		}
 
 		IfcLine& GetLine(uint32_t lineID)
 		{
-			return _metaData.lines[lineID];
+			return _metaData->lines[lineID];
 		}
 
 		webifc::DynamicTape<TAPE_SIZE>& GetTape()
@@ -439,7 +450,7 @@ namespace webifc
 
 		double GetLinearScalingFactor()
 		{
-			return _metaData.linearScalingFactor;
+			return _metaData->linearScalingFactor;
 		}
 
         bool IsOpen()
@@ -514,7 +525,7 @@ namespace webifc
 
 		inline void MoveToLine(uint32_t lineID)
 		{
-			_tape.MoveTo(_metaData.lines[lineID].tapeOffset);
+			_tape.MoveTo(_metaData->lines[lineID].tapeOffset);
 		}
 
 		inline void MoveTo(uint32_t offset)
@@ -524,7 +535,7 @@ namespace webifc
 
 		inline void MoveToLineArgument(uint32_t lineID, int argumentIndex)
 		{
-			MoveToArgumentOffset(_metaData.lines[lineID], argumentIndex);
+			MoveToArgumentOffset(_metaData->lines[lineID], argumentIndex);
 		}
 
 		inline std::string GetStringArgument()
@@ -657,12 +668,15 @@ namespace webifc
 			std::set<uint32_t> deps;
 			GetLineDependencies(expressID, deps);
 
-			auto voids = GetRelVoidRels()[expressID];
+			auto voids = GetRelVoidRels().find(expressID);
 
-			for (auto& v : voids)
+			if (voids != GetRelVoidRels().end())
 			{
-				deps.insert(v);
-				GetLineDependencies(v, deps);
+				for (auto& v : voids->second)
+				{
+					deps.insert(v);
+					GetLineDependencies(v, deps);
+				}
 			}
 
 			return deps;
@@ -690,29 +704,29 @@ namespace webifc
 			uint64_t pos = _tape.GetTotalSize();
 
 			// new line?
-			if (expressID >= _metaData.expressIDToLine.size() || _metaData.expressIDToLine[expressID] == 0)
+			if (expressID >= _metaData->expressIDToLine.size() || _metaData->expressIDToLine[expressID] == 0)
 			{
 				// allocate some space
-				_metaData.expressIDToLine.resize(expressID * 2);
+				_metaData->expressIDToLine.resize(expressID * 2);
 
 				// create line object
-				int lineID = _metaData.lines.size();
-				_metaData.lines.emplace_back();
+				int lineID = _metaData->lines.size();
+				_metaData->lines.emplace_back();
 
 				// create a line ID
-				_metaData.expressIDToLine[expressID] = lineID;
-				auto& line = _metaData.lines[lineID];
+				_metaData->expressIDToLine[expressID] = lineID;
+				auto& line = _metaData->lines[lineID];
 
 				// fill line data
 				line.expressID = expressID;
 				line.lineIndex = lineID;
 				line.ifcType = type;
 
-				_metaData.ifcTypeToLineID[type].push_back(lineID);
+				_metaData->ifcTypeToLineID[type].push_back(lineID);
 			}
 
-			auto lineID = _metaData.expressIDToLine[expressID];
-			auto& line = _metaData.lines[lineID];
+			auto lineID = _metaData->expressIDToLine[expressID];
+			auto& line = _metaData->lines[lineID];
 
 			line.tapeOffset = start;
 			line.tapeEnd = end;
@@ -798,7 +812,7 @@ namespace webifc
 			file << "ENDSEC;" << std::endl;
 			file << "DATA;" << std::endl;
 
-			const auto& linesToWrite = lines.empty() ? _metaData.lines : lines;
+			const auto& linesToWrite = lines.empty() ? _metaData->lines : lines;
 
 			for (auto& line : linesToWrite)
 			{
@@ -947,6 +961,6 @@ namespace webifc
 		DynamicTape<TAPE_SIZE> _tape; // 16mb chunked tape
         LoaderSettings _settings;
 
-        IfcMetaData _metaData;
+        std::shared_ptr<IfcMetaData> _metaData;
 	};
 }

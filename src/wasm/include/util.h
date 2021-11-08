@@ -1273,22 +1273,35 @@ namespace webifc
 	class DynamicTape
 	{
 	public:
-		DynamicTape()
+		DynamicTape():
+			chunks(std::make_shared<std::vector<std::array<uint8_t, N>>>()),
+			sizes(std::make_shared<std::vector<size_t>>())
 		{
 			AddChunk();
 		}
 
+		DynamicTape(const DynamicTape& origin)
+		{
+			readPtr = 0;
+			readChunkIndex = 0;
+			writePtr = origin.writePtr;
+
+			// we do a shallow copy here, the resulting tape data is linked, but their pointers are not!
+			chunks = origin.chunks;
+			sizes = origin.sizes;
+		}
+
 		inline void AddChunk()
 		{
-			chunks.emplace_back();
-			memset(chunks.back().data(), 0, N);
-			sizes.push_back(0);
+			chunks->emplace_back();
+			memset(chunks->back().data(), 0, N);
+			sizes->push_back(0);
 			writePtr++;
 		}
 
 		inline void CheckChunk(unsigned long long size)
 		{
-			if (sizes[writePtr] + size >= N)
+			if ((*sizes)[writePtr] + size >= N)
 			{
 				AddChunk();
 			}
@@ -1297,30 +1310,30 @@ namespace webifc
 		inline void push(char v)
 		{
 			CheckChunk(1);
-			chunks.back().data()[sizes[writePtr]] = v;
-			sizes[writePtr] += 1;
+			chunks->back().data()[(*sizes)[writePtr]] = v;
+			(*sizes)[writePtr] += 1;
 		}
 
 		inline void push(void* v, unsigned long long size)
 		{
 			CheckChunk(size);
-			memcpy(chunks.back().data() + sizes[writePtr], v, size);
-			sizes[writePtr] += size;
+			memcpy(chunks->back().data() + (*sizes)[writePtr], v, size);
+			(*sizes)[writePtr] += size;
 		}
 
 		inline void SetWriteAtEnd()
 		{
-			writePtr = chunks.size() - 1;
+			writePtr = chunks->size() - 1;
 		}
 
 		uint64_t GetTotalSize()
 		{
-			return (chunks.size() - 1) * N + sizes.back();
+			return (chunks->size() - 1) * N + sizes->back();
 		}
 
 		uint64_t GetCapacity()
 		{
-			return chunks.size() * N;
+			return chunks->size() * N;
 		}
 
 		void Reset()
@@ -1338,7 +1351,7 @@ namespace webifc
 		template <typename T>
 		inline T Read()
 		{
-			std::array<uint8_t, N>& chunk = chunks[readChunkIndex];
+			std::array<uint8_t, N>& chunk = (*chunks)[readChunkIndex];
 			uint8_t* valuePtr = &chunk[readPtr];
 
 			//T v = *(T*)(valuePtr);
@@ -1354,7 +1367,7 @@ namespace webifc
 
 		void* GetReadPtr()
 		{
-			std::array<uint8_t, N>& chunk = chunks[readChunkIndex];
+			std::array<uint8_t, N>& chunk = (*chunks)[readChunkIndex];
 			uint8_t* valuePtr = &chunk[readPtr];
 
 			return (void*)valuePtr;
@@ -1378,13 +1391,13 @@ namespace webifc
 			else
 			{
 				readChunkIndex--;
-				readPtr = static_cast<uint32_t>(sizes[readChunkIndex] - 1);
+				readPtr = static_cast<uint32_t>((*sizes)[readChunkIndex] - 1);
 			}
 		}
 
 		inline bool AtEnd()
 		{
-			return readChunkIndex == chunks.size();
+			return readChunkIndex == chunks->size();
 		}
 
 		inline uint32_t GetReadOffset()
@@ -1401,10 +1414,10 @@ namespace webifc
 		void DumpToDisk()
 		{
 			std::ofstream file("tape.bin");
-			for (int i = 0; i < chunks.size(); i++)
+			for (int i = 0; i < chunks->size(); i++)
 			{
-				std::array<uint8_t, N>& ch = chunks[i];
-				file.write((char*)ch.data(), sizes[i]);
+				std::array<uint8_t, N>& ch = (*chunks)[i];
+				file.write((char*)ch.data(), (*sizes)[i]);
 			}
 		}
 
@@ -1418,26 +1431,31 @@ namespace webifc
 
 			if (chunkStart == chunkEnd)
 			{
-				memcpy(dest, &chunks[chunkStart][chunkStartPos], chunkEndPos - chunkStartPos);
+				memcpy(dest, &(*chunks)[chunkStart][chunkStartPos], chunkEndPos - chunkStartPos);
 				
 				return chunkEndPos - chunkStartPos;
 			}
 			else
 			{
-				uint32_t startChunkSize = sizes[chunkStart];
+				uint32_t startChunkSize = (*sizes)[chunkStart];
 				uint32_t partOfStartchunk = startChunkSize - chunkStartPos;
 
-				memcpy(dest, &chunks[chunkStart][chunkStartPos], partOfStartchunk);
-				memcpy(dest + partOfStartchunk, &chunks[chunkEnd][0], chunkEndPos);
+				memcpy(dest, &(*chunks)[chunkStart][chunkStartPos], partOfStartchunk);
+				memcpy(dest + partOfStartchunk, &(*chunks)[chunkEnd][0], chunkEndPos);
 
 				return partOfStartchunk + chunkEndPos;
 			}
 		}
 
+		DynamicTape GetReadOnlyCopy() const
+		{
+			return DynamicTape(*this);
+		}
+
 		inline void AdvanceRead(unsigned long long size)
 		{
 			readPtr += static_cast<uint32_t>(size);
-			if (readPtr >= sizes[readChunkIndex])
+			if (readPtr >= (*sizes)[readChunkIndex])
 			{
 				readChunkIndex++;
 				readPtr = 0;
@@ -1449,8 +1467,8 @@ namespace webifc
 		uint32_t readPtr = 0;
 		uint32_t readChunkIndex = 0;
 		uint32_t writePtr = -1;
-		std::vector<std::array<uint8_t, N>> chunks;
-		std::vector<size_t> sizes;
+		std::shared_ptr<std::vector<std::array<uint8_t, N>>> chunks;
+		std::shared_ptr<std::vector<size_t>> sizes;
 	};
 
 }

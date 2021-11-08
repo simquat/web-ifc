@@ -5,6 +5,9 @@
 #include <iostream>
 #include <fstream>
 #include <filesystem>
+#include <numeric>
+#include <algorithm>
+#include <future>
 
 #include "include/web-ifc.h"
 #include "include/web-ifc-geometry.h"
@@ -62,6 +65,80 @@ std::vector<webifc::IfcFlatMesh> LoadAllTest(webifc::IfcLoader& loader, webifc::
     }
 
     return meshes;
+}
+
+std::vector<std::vector<uint32_t>> GetJobs(webifc::IfcLoader& loader)
+{
+    std::vector<std::vector<uint32_t>> jobs;
+
+    for (auto type : ifc2x4::IfcElements)
+    {
+        auto elements = loader.GetExpressIDsWithType(type);
+        if (!elements.empty())
+        {
+            jobs.push_back(std::move(elements));
+        }
+    }
+
+    return jobs;
+}
+
+std::vector<webifc::IfcFlatMesh> LoadAllMTTest(webifc::IfcLoader& loader)
+{
+    int numWorkers = 8;
+
+    std::vector<webifc::IfcLoader> loaders(numWorkers);
+    std::vector<std::unique_ptr<webifc::IfcGeometryLoader>> geomLoaders(numWorkers);
+    std::vector<std::future<void>> futures(numWorkers);
+
+    auto jobs = GetJobs(loader);
+    int jobCounter = 0;
+    std::mutex jobMtx;
+
+    std::cout << jobs.size() << "jobs" << std::endl;
+
+    for (auto& job : jobs)
+    {
+        std::cout << job.size() << std::endl;
+    }
+
+    for (int i = 0; i < numWorkers; i++)
+    {
+        // read only copy of the original loader
+        loaders[i] = webifc::IfcLoader(loader);
+        geomLoaders[i] = std::make_unique<webifc::IfcGeometryLoader>(loaders[i]);
+
+        int worker = i;
+
+        futures[i] = std::async([&geomLoaders, &jobMtx, &jobCounter, &jobs, worker]()
+                                {
+                                    while (true)
+                                    {
+                                        int jobIndex = 0;
+                                        jobMtx.lock();
+                                        jobIndex = jobCounter++;
+                                        jobMtx.unlock();
+                                        if (jobIndex >= jobs.size())
+                                        {
+                                            break;
+                                        }
+                                        auto& job = jobs[jobIndex];
+
+                                        for (auto& id : job)
+                                        {
+                                            geomLoaders[worker]->GetFlatMesh(id);
+                                        }
+                                    }
+                               });
+    }
+
+
+    for (int i = 0; i < numWorkers; i++)
+    {
+        futures[i].get();
+    }
+
+    return {};
 }
 
 void DumpRefs(std::unordered_map<uint32_t, std::vector<uint32_t>>& refs)
@@ -230,8 +307,8 @@ int main()
     //return 0;
 
 
-    //std::string content = ReadFile(L"D:/web-ifc-obb/benchmark/ifcfiles/01097-Tungasletta-2-Hovedbygg-RC2.ifc");
-    std::string content = ReadFile(L"D:/web-ifc/src/wasm/build/output.ifc");
+    std::string content = ReadFile(L"D:/web-ifc-obb/benchmark/ifcfiles/20200518Yangsan Pr-HARDWARE.ifc");
+    //std::string content = ReadFile(L"D:/web-ifc/src/wasm/build/output.ifc");
 
     webifc::LoaderSettings set;
     set.COORDINATE_TO_ORIGIN = true;
@@ -239,6 +316,7 @@ int main()
     set.USE_FAST_BOOLS = true;
 
     webifc::IfcLoader loader(set);
+
 
     auto start = webifc::ms();
     loader.LoadFile(content);
@@ -249,6 +327,7 @@ int main()
     auto time = webifc::ms() - start;
 
     std::cout << "Reading took " << time << "ms" << std::endl;
+
 
     /*
     std::ofstream outputFile("output.ifc");
@@ -261,7 +340,8 @@ int main()
     start = webifc::ms();
 
     //SpecificLoadTest(loader, geometryLoader, 2615);
-    auto meshes = LoadAllTest(loader, geometryLoader);
+    LoadAllMTTest(loader);
+    //auto meshes = LoadAllTest(loader, geometryLoader);
     auto trans = webifc::FlattenTransformation(geometryLoader.GetCoordinationMatrix());
 
     auto errors = loader.GetAndClearErrors();

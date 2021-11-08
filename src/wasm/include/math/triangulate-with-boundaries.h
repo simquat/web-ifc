@@ -1267,6 +1267,8 @@ namespace webifc
 
     std::vector<Triangle> triangulate(const glm::dvec2& a, const glm::dvec2& b, const glm::dvec2& c, std::vector<Loop>& loops, bool& swapped)
     {
+        return {};
+
         instance++;
 
         ResetTriangles();
