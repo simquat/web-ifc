@@ -69,6 +69,8 @@ std::vector<webifc::IfcFlatMesh> LoadAllTest(webifc::IfcLoader& loader, webifc::
 
 std::vector<std::vector<uint32_t>> GetJobs(webifc::IfcLoader& loader)
 {
+    int MAX_JOB_SIZE = 1000;
+
     std::vector<std::vector<uint32_t>> jobs;
 
     for (auto type : ifc2x4::IfcElements)
@@ -76,7 +78,16 @@ std::vector<std::vector<uint32_t>> GetJobs(webifc::IfcLoader& loader)
         auto elements = loader.GetExpressIDsWithType(type);
         if (!elements.empty())
         {
-            jobs.push_back(std::move(elements));
+            for (int offset = 0; offset < elements.size(); offset += MAX_JOB_SIZE)
+            {
+                int count = std::min(offset + MAX_JOB_SIZE, (int)elements.size()) - offset;
+                std::vector<uint32_t> job(count);
+                for (int i = 0; i < count; i++)
+                {
+                    job[i] = elements[offset + i];
+                }
+                jobs.push_back(std::move(job));
+            }
         }
     }
 
@@ -276,7 +287,8 @@ void TestTriangleDecompose()
         std::cout << "Start test " << i << std::endl;
 
         bool swapped = false;
-        auto triangles = webifc::triangulate(a, b, c, loops, swapped);
+        webifc::TriangulateBoundaries tribound;
+        auto triangles = tribound.triangulate(a, b, c, loops, swapped);
 
         // webifc::IsValidTriangulation(triangles, points);
 

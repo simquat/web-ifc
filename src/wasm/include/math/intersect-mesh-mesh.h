@@ -191,7 +191,8 @@ namespace webifc
 
                 // eartcut.hpp seems to have issues with colinear points in holes, so for now use custom slow algo
                 bool swapped = false;
-                std::vector<Triangle> tesselation = triangulate(pa, pb, pc, loops, swapped);
+                webifc::TriangulateBoundaries triBound;
+                std::vector<Triangle> tesselation = triBound.triangulate(pa, pb, pc, loops, swapped);
 
                 for (auto& triangle : tesselation)
                 {
