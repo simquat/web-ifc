@@ -58,7 +58,14 @@ namespace webifc
 
 		IfcGeometry& GetCachedGeometry(uint32_t expressID)
 		{
-			return _expressIDToGeometry[expressID];
+			auto it = _expressIDToGeometry.find(expressID);
+
+			if (it == _expressIDToGeometry.end())
+			{
+				return IfcGeometry(_doublePool, _uintPool);
+			}
+
+			return it->second;
 		}
 
 		void ClearCachedGeometry()
@@ -74,7 +81,9 @@ namespace webifc
 		IfcGeometry GetFlattenedGeometry(uint32_t expressID)
 		{
 			auto mesh = GetMesh(expressID);
-            return flatten(mesh, _expressIDToGeometry, NormalizeIFC);
+			IfcGeometry result(_doublePool, _uintPool);
+            flattenRecursive(mesh, _expressIDToGeometry, result, NormalizeIFC);
+			return result;
 		}
 
 		void AddComposedMeshToFlatMesh(IfcFlatMesh& flatMesh, const IfcComposedMesh& composedMesh, const glm::dmat4& parentMatrix = glm::dmat4(1), const glm::dvec4& color = glm::dvec4(1, 1, 1, 1), bool hasColor = false)
@@ -93,9 +102,11 @@ namespace webifc
 			{
 				IfcPlacedGeometry geometry;
 
-				if (!_isCoordinated && _loader.GetSettings().COORDINATE_TO_ORIGIN)
+				auto it = _expressIDToGeometry.find(composedMesh.expressID);
+
+				if (!_isCoordinated && _loader.GetSettings().COORDINATE_TO_ORIGIN && it->second.numPoints > 0)
 				{
-					auto& geom = _expressIDToGeometry[composedMesh.expressID];
+					auto& geom = it->second;
 					auto pt = geom.GetPoint(0);
 					auto transformedPt = newMatrix * glm::dvec4(pt, 1);
 					_coordinationMatrix = glm::translate(-glm::dvec3(transformedPt));
@@ -132,26 +143,7 @@ namespace webifc
 
 		IfcComposedMesh GetMesh(uint32_t expressID)
 		{
-			if (_loader.GetSettings().MESH_CACHE)
-			{
-				auto it = _expressIDToMesh.find(expressID);
-
-				if (it == _expressIDToMesh.end())
-				{
-					_statistics.meshCacheMisses++;
-					_expressIDToMesh[expressID] = GetMeshByLine(_loader.ExpressIDToLineID(expressID));
-				}
-				else
-				{
-					_statistics.meshCacheHits++;
-				}
-
-				return _expressIDToMesh[expressID];
-			}
-			else
-			{
-				return GetMeshByLine(_loader.ExpressIDToLineID(expressID));
-			}
+			return GetMeshByLine(_loader.ExpressIDToLineID(expressID));
 		}
 
 		IfcProfile GetProfile(uint32_t expressID)
@@ -317,7 +309,8 @@ namespace webifc
 
 					auto origin = GetOrigin(mesh, _expressIDToGeometry);
 					auto normalizeMat = glm::translate(-origin);
-					auto flatElementMesh = flatten(mesh, _expressIDToGeometry, normalizeMat);
+					IfcGeometry flatElementMesh(_doublePool, _uintPool);
+					flattenRecursive(mesh, _expressIDToGeometry, flatElementMesh, normalizeMat);
 
 					if (!flatElementMesh.IsEmpty())
 					{
@@ -326,13 +319,16 @@ namespace webifc
 						for (auto relVoidExpressID : relVoidsIt->second)
 						{
 							IfcComposedMesh voidMesh = GetMesh(relVoidExpressID);
-							auto flatVoidMesh = flatten(voidMesh, _expressIDToGeometry, normalizeMat);
+							IfcGeometry flatVoidMesh(_doublePool, _uintPool);
+							flattenRecursive(voidMesh, _expressIDToGeometry, flatVoidMesh, normalizeMat);
 
-							flatElementMesh = BoolSubtract(flatElementMesh, flatVoidMesh);
+							IfcGeometry newFlatMesh(_doublePool, _uintPool);
+							BoolSubtract(newFlatMesh, flatElementMesh, flatVoidMesh);
+							flatElementMesh = std::move(newFlatMesh);
 						}
 					}
 
-					_expressIDToGeometry[line.expressID] = flatElementMesh;
+					_expressIDToGeometry.insert({ line.expressID, std::move(flatElementMesh) });
 					resultMesh.transformation = glm::translate(origin);
 					resultMesh.expressID = line.expressID;
 					resultMesh.hasGeometry = true;
@@ -373,12 +369,14 @@ namespace webifc
 					auto origin = GetOrigin(firstMesh, _expressIDToGeometry);
 					auto normalizeMat = glm::translate(-origin);
 
-					auto flatFirstMesh = flatten(firstMesh, _expressIDToGeometry, normalizeMat);
-					auto flatSecondMesh = flatten(secondMesh, _expressIDToGeometry, normalizeMat);
+					IfcGeometry flatFirstMesh(_doublePool, _uintPool);
+					IfcGeometry flatSecondMesh(_doublePool, _uintPool);
+					flattenRecursive(firstMesh, _expressIDToGeometry, flatFirstMesh, normalizeMat);
+					flattenRecursive(secondMesh, _expressIDToGeometry, flatSecondMesh, normalizeMat);
 
-					webifc::IfcGeometry resultMesh = BoolSubtract(flatFirstMesh, flatSecondMesh);
-					
-					_expressIDToGeometry[line.expressID] = resultMesh;
+					IfcGeometry resultMesh(_doublePool, _uintPool);
+					BoolSubtract(flatFirstMesh, flatSecondMesh, resultMesh);
+					_expressIDToGeometry.insert({ line.expressID, std::move(resultMesh) });
 					mesh.hasGeometry = true;
 					mesh.transformation = glm::translate(origin);
 
@@ -412,8 +410,10 @@ namespace webifc
 					auto origin = GetOrigin(firstMesh, _expressIDToGeometry);
 					auto normalizeMat = glm::translate(-origin);
 
-					auto flatFirstMesh = flatten(firstMesh, _expressIDToGeometry, normalizeMat);
-					auto flatSecondMesh = flatten(secondMesh, _expressIDToGeometry, normalizeMat);
+					IfcGeometry flatFirstMesh(_doublePool, _uintPool);
+					IfcGeometry flatSecondMesh(_doublePool, _uintPool);
+					flattenRecursive(firstMesh, _expressIDToGeometry, flatFirstMesh, normalizeMat);
+					flattenRecursive(secondMesh, _expressIDToGeometry, flatSecondMesh, normalizeMat);
 
 					if (flatFirstMesh.numFaces == 0)
 					{
@@ -422,9 +422,9 @@ namespace webifc
 						return mesh;
 					}
 
-					webifc::IfcGeometry resultMesh = BoolSubtract(flatFirstMesh, flatSecondMesh);
-
-					_expressIDToGeometry[line.expressID] = resultMesh;
+					IfcGeometry resultMesh(_doublePool, _uintPool);
+					BoolSubtract(flatFirstMesh, flatSecondMesh, resultMesh);
+					_expressIDToGeometry.insert({ line.expressID, std::move(resultMesh) });
 					mesh.hasGeometry = true;
 					mesh.transformation = glm::translate(origin);
                     if (!mesh.hasColor && firstMesh.hasColor)
@@ -474,7 +474,7 @@ namespace webifc
 
 					mesh.transformation = surface.transformation;
 					// TODO: this is getting problematic.....
-					_expressIDToGeometry[line.expressID] = geom;
+					_expressIDToGeometry.insert({ line.expressID, std::move(geom) });
 					mesh.hasGeometry = true;
 
 					return mesh;
@@ -535,7 +535,7 @@ namespace webifc
 					}
 
 					// TODO: this is getting problematic.....
-					_expressIDToGeometry[line.expressID] = geom;
+					_expressIDToGeometry.insert({ line.expressID, std::move(geom) });
 					mesh.hasGeometry = true;
 					mesh.transformation = position;
 
@@ -556,13 +556,13 @@ namespace webifc
 				case ifc2x4::IFCSHELLBASEDSURFACEMODEL:
 				{
 					_loader.MoveToArgumentOffset(line, 0);
-					auto shells = _loader.GetSetArgument();
+					const auto& shells = _loader.GetSetArgument();
 
 					for (auto& shell : shells)
 					{
 						uint32_t shellRef = _loader.GetRefArgument(shell);
 						IfcComposedMesh temp;
-						_expressIDToGeometry[shellRef] = GetBrep(shellRef);
+						_expressIDToGeometry.insert({ shellRef, GetBrep(shellRef) });
 						temp.expressID = shellRef;
 						temp.hasGeometry = true;
 						temp.transformation = glm::dmat4(1);
@@ -576,7 +576,7 @@ namespace webifc
 					_loader.MoveToArgumentOffset(line, 0);
 					uint32_t ifcPresentation = _loader.GetRefArgument();
 
-					_expressIDToGeometry[line.expressID] = GetBrep(ifcPresentation);
+					_expressIDToGeometry.insert({ line.expressID, GetBrep(ifcPresentation) });
 					mesh.hasGeometry = true;
 
 					return mesh;
@@ -629,7 +629,7 @@ namespace webifc
 					_loader.MoveToArgumentOffset(line, 2);
 					auto faces = _loader.GetSetArgument();
 
-					IfcGeometry geom;
+					IfcGeometry geom(_doublePool, _uintPool);
 
 					std::vector<IfcBound3D> bounds;
 					for (auto& face : faces)
@@ -648,7 +648,8 @@ namespace webifc
 						_loader.ReportError({ LoaderErrorType::UNSUPPORTED_TYPE, "Unsupported IFCPOLYGONALFACESET with PnIndex", line.expressID });
 					}
 
-					_expressIDToGeometry[line.expressID] = geom;
+					_expressIDToGeometry.insert({ line.expressID, std::move(geom) });
+
 					mesh.expressID = line.expressID;
 					mesh.hasGeometry = true;
 					
@@ -668,8 +669,7 @@ namespace webifc
 					_loader.MoveToArgumentOffset(line, 3);
 					auto indices = Read2DArrayOfThreeIndices();
 
-					IfcGeometry geom;
-
+					IfcGeometry geom(_doublePool, _uintPool);
 
 					_loader.MoveToArgumentOffset(line, 4);
 					if (_loader.GetTokenType() == IfcTokenType::SET_BEGIN)
@@ -692,7 +692,7 @@ namespace webifc
 
 					// DumpIfcGeometry(geom, L"test.obj");
 
-					_expressIDToGeometry[line.expressID] = geom;
+					_expressIDToGeometry.insert({ line.expressID, std::move(geom) });
 					mesh.expressID = line.expressID;
 					mesh.hasGeometry = true;
 					
@@ -723,7 +723,7 @@ namespace webifc
 
 					IfcGeometry geom = Sweep(profile, directrix);
 
-					_expressIDToGeometry[line.expressID] = geom;
+					_expressIDToGeometry.insert({ line.expressID, std::move(geom) });
 					mesh.expressID = line.expressID;
 					mesh.hasGeometry = true;
 
@@ -751,13 +751,12 @@ namespace webifc
 					IfcGeometry geom = Sweep(profile, directrix, axis);
 
 					mesh.transformation = placement;
-					_expressIDToGeometry[line.expressID] = geom;
+					_expressIDToGeometry.insert({ line.expressID, std::move(geom) });
 					mesh.expressID = line.expressID;
 					mesh.hasGeometry = true;
 
 					mesh.hasColor = hasColor;
 					mesh.color = styledItemColor;
-					_expressIDToMesh[line.expressID] = mesh;
 					return mesh;
 				}
 				case ifc2x4::IFCEXTRUDEDAREASOLID:
@@ -807,7 +806,7 @@ namespace webifc
 						DumpIfcGeometry(geom, L"IFCEXTRUDEDAREASOLID_geom.obj");
 					}
 
-					_expressIDToGeometry[line.expressID] = geom;
+					_expressIDToGeometry.insert({ line.expressID, std::move(geom) });
 					mesh.expressID = line.expressID;
 					mesh.hasGeometry = true;
 					
@@ -887,16 +886,17 @@ namespace webifc
 			return result;
 		}
 
-		IfcGeometry BoolSubtract(const IfcGeometry& firstGeom, const IfcGeometry& secondGeom)
+		void BoolSubtract(const IfcGeometry& firstGeom, const IfcGeometry& secondGeom, IfcGeometry& result)
 		{
-			IfcGeometry result;
-
 			glm::dvec3 center;
 			glm::dvec3 extents;
 			firstGeom.GetCenterExtents(center, extents);
 
-			auto first = firstGeom.Normalize(center, extents);
-			auto second = secondGeom.Normalize(center, extents);
+			IfcGeometry first(_doublePool, _uintPool);
+			IfcGeometry second(_doublePool, _uintPool);
+
+			firstGeom.Normalize(first, center, extents);
+			 secondGeom.Normalize(second, center, extents);
 
 			if (first.numFaces == 0 || second.numFaces == 0)
 			{
@@ -904,7 +904,7 @@ namespace webifc
 
 				// bail out because we will get strange meshes
 				// if this happens, probably there's an issue parsing the mesh that occurred earlier
-				return firstGeom;
+				return;
 			}
 
 			if (_loader.GetSettings().DUMP_CSG_MESHES)
@@ -915,8 +915,8 @@ namespace webifc
 
 			if (_loader.GetSettings().USE_FAST_BOOLS)
 			{
-				IfcGeometry r1;
-				IfcGeometry r2;
+				IfcGeometry r1(_doublePool, _uintPool);
+				IfcGeometry r2(_doublePool, _uintPool);
 
 				intersectMeshMesh(first, second, r1, r2);
 
@@ -926,7 +926,7 @@ namespace webifc
 					DumpIfcGeometry(r2, L"r2.obj");
 				}
 
-				result = boolSubtract(r1, r2);
+				boolSubtract(r1, r2, result);
 			}
 			else
 			{
@@ -937,10 +937,10 @@ namespace webifc
 					_loader.ReportError({ LoaderErrorType::BOOL_ERROR, "complex bool aborted due to BOOL_ABORT_THRESHOLD" });
 
 					// bail out because we expect this operation to take too long
-					return firstGeom;
+					return;
 				}
 
-				result = boolSubtract_CSGJSCPP(first, second);
+				boolSubtract_CSGJSCPP(first, second, result);
 			}
 
 			if (_loader.GetSettings().DUMP_CSG_MESHES)
@@ -948,7 +948,9 @@ namespace webifc
 				DumpIfcGeometry(result, L"result.obj");
 			}
 
-			return result.DeNormalize(center, extents);
+			IfcGeometry r(_doublePool, _uintPool);
+			result.DeNormalize(r, center, extents);
+			result = r;
 		}
 
 		std::vector<glm::dvec3> ReadIfcCartesianPointList3D(uint32_t expressID)
@@ -1020,7 +1022,7 @@ namespace webifc
 				_loader.MoveToArgumentOffset(line, 0);
 				auto indexIDs = _loader.GetSetArgument();
 
-				IfcGeometry geometry;
+				IfcGeometry geometry(_doublePool, _uintPool);
 				for (auto& indexID : indexIDs)
 				{
 					uint32_t index = static_cast<uint32_t>(_loader.GetDoubleArgument(indexID));
@@ -1079,7 +1081,7 @@ namespace webifc
 				_loader.MoveToArgumentOffset(line, 0);
 				auto faces = _loader.GetSetArgument();
 
-				IfcGeometry geometry;
+				IfcGeometry geometry(_doublePool, _uintPool);
 				for (auto& faceToken : faces)
 				{
 					uint32_t faceID = _loader.GetRefArgument(faceToken);
@@ -1093,7 +1095,7 @@ namespace webifc
 				break;
 			}
 
-			return IfcGeometry();
+			return IfcGeometry(_doublePool, _uintPool);
 		}
 
 		bool GetColor(uint32_t expressID, glm::dvec4& outputColor)
@@ -1301,15 +1303,18 @@ namespace webifc
 				IfcCurve3D curve;
 
 				_loader.MoveToArgumentOffset(line, 0);
-				auto points = _loader.GetSetArgument();
 
-				curve.points.reserve(points.size());
+				PoolBackedChunkedVector<uint32_t> offsets(_uintPool);
+
+				_loader.GetSetArgument(offsets);
+
+				curve.points.reserve(offsets.size());
 
 				uint32_t prevID = 0;
-				for (auto& token : points)
+				for (int i = 0; i < offsets.size(); i++)
 				{
-					uint32_t pointId = _loader.GetRefArgument(token);
-					
+					uint32_t pointId = _loader.GetRefArgument(offsets[i]);
+
 					// trim out consecutive equal points
 					if (pointId != prevID)
 					{
@@ -1340,6 +1345,15 @@ namespace webifc
 				size_t offset = geometry.numPoints;
 
 				geometry.AddFace(c.points[0], c.points[1], c.points[2]);
+			}
+			else if (bounds.size() == 1 && bounds[0].curve.points.size() == 4)
+			{
+				auto c = bounds[0].curve;
+
+				size_t offset = geometry.numPoints;
+
+				geometry.AddFace(c.points[0], c.points[1], c.points[2]);
+				geometry.AddFace(c.points[0], c.points[2], c.points[3]);
 			}
 			else if (bounds.size() > 0 && bounds[0].curve.points.size() >= 3)
 			{
@@ -1391,8 +1405,6 @@ namespace webifc
 				glm::dvec3 n = glm::normalize(glm::cross(v12, v13));
 				v12 = glm::cross(v13, n);
 
-				std::vector<glm::dvec2> temp;
-
 				for (auto& bound : bounds)
 				{
 					std::vector<Point> points;
@@ -1409,7 +1421,6 @@ namespace webifc
 							glm::dot(pt2, v13)
 						);
 
-						temp.push_back(proj);
 						points.push_back({ proj.x, proj.y });
 					}
 
@@ -1433,7 +1444,7 @@ namespace webifc
 		//! This implementation generates much more vertices than needed, and does not have smoothed normals
 		IfcGeometry Sweep(const IfcProfile& profile, const IfcCurve<3>& directrix, const glm::dvec3& initialDirectrixNormal = glm::dvec3(0))
 		{
-			IfcGeometry geom;
+			IfcGeometry geom(_doublePool, _uintPool);
 
 			auto& dpts = directrix.points;
 
@@ -1572,7 +1583,7 @@ namespace webifc
 
 		IfcGeometry Extrude(IfcProfile profile, glm::dvec3 dir, double distance, glm::dvec3 cuttingPlaneNormal = glm::dvec3(0), glm::dvec3 cuttingPlanePos = glm::dvec3(0))
 		{
-			IfcGeometry geom;
+			IfcGeometry geom(_doublePool, _uintPool);
 			std::vector<bool> holesIndicesHash;
 
 			// build the caps
@@ -2496,6 +2507,8 @@ namespace webifc
 		bool _isCoordinated = false;
 		IfcLoader& _loader;
 		std::unordered_map<uint32_t, IfcGeometry> _expressIDToGeometry;
-		std::unordered_map<uint32_t, IfcComposedMesh> _expressIDToMesh;
+
+		MemoryPool<double> _doublePool;
+		MemoryPool<uint32_t> _uintPool;
 	};
 }

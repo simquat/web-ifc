@@ -32,7 +32,6 @@ namespace webifc
         int CIRCLE_SEGMENTS_LOW = 5;
         int CIRCLE_SEGMENTS_MEDIUM = 8;
         int CIRCLE_SEGMENTS_HIGH = 12;
-        bool MESH_CACHE = false;
 		int BOOL_ABORT_THRESHOLD = 10000; // 10k verts
     };
 
@@ -732,6 +731,7 @@ namespace webifc
 			line.tapeEnd = end;
 		}
 
+		// TODO: don't dynamically allocate the tapeOffsets here
 		inline std::vector<uint32_t> GetSetArgument()
 		{
 			std::vector<uint32_t> tapeOffsets;
@@ -786,6 +786,59 @@ namespace webifc
 			}
 
 			return tapeOffsets;
+		}
+		inline void GetSetArgument(PoolBackedChunkedVector<uint32_t>& offsets)
+		{
+			std::vector<uint32_t> tapeOffsets;
+			_tape.Read<char>(); // set begin
+			int depth = 1;
+			while (true)
+			{
+				uint32_t offset = _tape.GetReadOffset();
+				IfcTokenType t = static_cast<IfcTokenType>(_tape.Read<char>());
+
+				if (t == IfcTokenType::SET_BEGIN)
+				{
+					depth++;
+				}
+				else if (t == IfcTokenType::SET_END)
+				{
+					depth--;
+				}
+				else
+				{
+					offsets.Push(offset);
+
+					if (t == IfcTokenType::REAL)
+					{
+						_tape.Read<double>();
+					}
+					else if (t == IfcTokenType::REF)
+					{
+						_tape.Read<uint32_t>();
+					}
+					else if (t == IfcTokenType::STRING)
+					{
+						uint8_t length = _tape.Read<uint8_t>();
+						_tape.AdvanceRead(length);
+					}
+					else if (t == IfcTokenType::LABEL)
+					{
+						uint8_t length = _tape.Read<uint8_t>();
+						_tape.AdvanceRead(length);
+					}
+					else
+					{
+						ReportError({ LoaderErrorType::PARSING, "unexpected token" });
+						assert(false);
+					}
+				}
+
+				if (depth == 0)
+				{
+					break;
+				}
+			}
 		}
 
 		std::string DumpSingleObjectAsIFC(uint32_t expressID)

@@ -69,7 +69,7 @@ std::vector<webifc::IfcFlatMesh> LoadAllTest(webifc::IfcLoader& loader, webifc::
 
 std::vector<std::vector<uint32_t>> GetJobs(webifc::IfcLoader& loader)
 {
-    int MAX_JOB_SIZE = 1000;
+    int MAX_JOB_SIZE = 100;
 
     std::vector<std::vector<uint32_t>> jobs;
 
@@ -110,7 +110,7 @@ std::vector<webifc::IfcFlatMesh> LoadAllMTTest(webifc::IfcLoader& loader)
 
     for (auto& job : jobs)
     {
-        std::cout << job.size() << std::endl;
+        //std::cout << job.size() << std::endl;
     }
 
     for (int i = 0; i < numWorkers; i++)
@@ -320,6 +320,7 @@ int main()
 
 
     std::string content = ReadFile(L"D:/web-ifc-obb/benchmark/ifcfiles/20200518Yangsan Pr-HARDWARE.ifc");
+    //std::string content = ReadFile(L"D:/web-ifc-obb/benchmark/ifcfiles/rac_basic_sample_project.ifc");
     //std::string content = ReadFile(L"D:/web-ifc/src/wasm/build/output.ifc");
 
     webifc::LoaderSettings set;

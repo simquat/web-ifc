@@ -116,10 +116,8 @@ namespace webifc
         return loops;
     }
 
-    IfcGeometry retriangulateMesh(const IfcGeometry& mesh, MeshIntersections& intersections)
+    IfcGeometry retriangulateMesh(const IfcGeometry& mesh, MeshIntersections& intersections, IfcGeometry& outputMesh)
     {
-        IfcGeometry outputMesh;
-
         for (uint32_t i = 0; i < mesh.numFaces; i++)
         {
             Face f = mesh.GetFace(i);
@@ -338,7 +336,7 @@ namespace webifc
         //DumpIfcGeometry(m1, L"mesh1ints.obj");
         //DumpIfcGeometry(m2, L"mesh2ints.obj");
 
-        result1 = std::move(retriangulateMesh(mesh1, meshIntersections1));
-        result2 = std::move(retriangulateMesh(mesh2, meshIntersections2));
+        retriangulateMesh(mesh1, meshIntersections1, result1);
+        retriangulateMesh(mesh2, meshIntersections2, result2);
     }
 }

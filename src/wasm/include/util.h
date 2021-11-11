@@ -6,12 +6,15 @@
 
 #include <sstream>
 #include <fstream>
+#include <stack>
 #include <vector>
 #include <array>
 #include <unordered_map>
 #include <optional>
 
 #include "../deps/glm/glm/glm.hpp"
+#include "./ChunkedVector.h"
+
 
 #define CONST_PI 3.141592653589793238462643383279502884L
 
@@ -112,11 +115,18 @@ namespace webifc
 	struct IfcGeometry
 	{
 		std::vector<float> fvertexData;
-		std::vector<double> vertexData;
-		std::vector<uint32_t> indexData;
+		PoolBackedChunkedVector<double> vertexData;
+		PoolBackedChunkedVector<uint32_t> indexData;
 
 		uint32_t numPoints = 0;
 		uint32_t numFaces = 0;
+
+		IfcGeometry(MemoryPool<double>& pd, MemoryPool<uint32_t>& pu):
+			vertexData(pd),
+			indexData(pu)
+		{
+
+		}
 
 		inline void AddPoint(glm::dvec4& pt, glm::dvec3& n)
 		{
@@ -130,13 +140,13 @@ namespace webifc
 			//vertexData[numPoints * VERTEX_FORMAT_SIZE_FLOATS + 0] = pt.x;
 			//vertexData[numPoints * VERTEX_FORMAT_SIZE_FLOATS + 1] = pt.y;
 			//vertexData[numPoints * VERTEX_FORMAT_SIZE_FLOATS + 2] = pt.z;
-			vertexData.push_back(pt.x);
-			vertexData.push_back(pt.y);
-			vertexData.push_back(pt.z);
+			vertexData.Push(pt.x);
+			vertexData.Push(pt.y);
+			vertexData.Push(pt.z);
 
-			vertexData.push_back(n.x);
-			vertexData.push_back(n.y);
-			vertexData.push_back(n.z);
+			vertexData.Push(n.x);
+			vertexData.Push(n.y);
+			vertexData.Push(n.z);
 
 			if (std::isnan(pt.x) || std::isnan(pt.y) || std::isnan(pt.z))
 			{
@@ -178,9 +188,9 @@ namespace webifc
 			//indexData[numFaces * 3 + 0] = a;
 			//indexData[numFaces * 3 + 1] = b;
 			//indexData[numFaces * 3 + 2] = c;
-			indexData.push_back(a);
-			indexData.push_back(b);
-			indexData.push_back(c);
+			indexData.Push(a);
+			indexData.Push(b);
+			indexData.Push(c);
 
 			numFaces++;
 		}
@@ -219,10 +229,8 @@ namespace webifc
 			center = min + extents / 2.0;
 		}
 
-		IfcGeometry Normalize(glm::dvec3 center, glm::dvec3 extents) const
+		void Normalize(IfcGeometry& newGeom, glm::dvec3 center, glm::dvec3 extents) const
 		{
-			IfcGeometry newGeom;
-
 			double scale = std::max(extents.x, std::max(extents.y, extents.z));
 
 			for (size_t i = 0; i < numFaces; i++)
@@ -234,15 +242,10 @@ namespace webifc
 
 				newGeom.AddFace(a, b, c);
 			}
-
-
-			return newGeom;
 		}
 
-		IfcGeometry DeNormalize(glm::dvec3 center, glm::dvec3 extents) const
+		void DeNormalize(IfcGeometry& newGeom, glm::dvec3 center, glm::dvec3 extents) const
 		{
-			IfcGeometry newGeom;
-
 			double scale = std::max(extents.x, std::max(extents.y, extents.z));
 
 			for (size_t i = 0; i < numFaces; i++)
@@ -254,9 +257,6 @@ namespace webifc
 
 				newGeom.AddFace(a, b, c);
 			}
-
-
-			return newGeom;
 		}
 
 		uint32_t GetVertexData()
@@ -305,7 +305,7 @@ namespace webifc
 
 		bool IsEmpty()
 		{
-			return vertexData.empty();
+			return vertexData.size() == 0;
 		}
 	};
 
@@ -701,7 +701,7 @@ namespace webifc
 		}
 	}
 
-	void flattenRecursive(IfcComposedMesh& mesh, std::unordered_map<uint32_t, IfcGeometry>& geometryMap, IfcGeometry& geom, glm::dmat4 mat)
+	void flattenRecursive(IfcComposedMesh& mesh, std::unordered_map<uint32_t, IfcGeometry>& geometryMap, IfcGeometry& geom, glm::dmat4 mat = glm::dmat4(1))
 	{
 		glm::dmat4 newMat = mat * mesh.transformation;
 
@@ -738,13 +738,6 @@ namespace webifc
 		{
 			flattenRecursive(c, geometryMap, geom, newMat);
 		}
-	}
-
-	IfcGeometry flatten(IfcComposedMesh& mesh, std::unordered_map<uint32_t, IfcGeometry>& geometryMap, glm::dmat4 mat = glm::dmat4(1))
-	{
-		IfcGeometry geom;
-		flattenRecursive(mesh, geometryMap, geom, mat);
-		return geom;
 	}
 
 	std::vector<glm::dvec2> rescale(std::vector<glm::dvec2> input, glm::dvec2 size, glm::dvec2 offset)
@@ -1250,9 +1243,9 @@ namespace webifc
 
 		glm::dmat4 trans = mat * mesh.transformation;
 
-		auto& geom = geometryMap[mesh.expressID];
+		auto& geom = geometryMap.find(mesh.expressID);
 
-		complete += ToObj(geom, offset, trans);
+		complete += ToObj(geom->second, offset, trans);
 
 		for (auto c : mesh.children)
 		{

@@ -58,46 +58,30 @@ namespace webifc
         }
     }
 
-    IfcGeometry boolIntersect(IfcGeometry& mesh1, IfcGeometry& mesh2)
+    void boolIntersect(IfcGeometry& resultingMesh, IfcGeometry& mesh1, IfcGeometry& mesh2)
     {
-        IfcGeometry resultingMesh;
-
         clipMesh(mesh1, mesh2, resultingMesh, false, false, true);
         clipMesh(mesh2, mesh1, resultingMesh, false, false, false);
-
-        return resultingMesh;
     }
 
-    IfcGeometry boolJoin(IfcGeometry& mesh1, IfcGeometry& mesh2)
+    void boolJoin(IfcGeometry& resultingMesh, IfcGeometry& mesh1, IfcGeometry& mesh2)
     {
-        IfcGeometry resultingMesh;
-
         clipMesh(mesh1, mesh2, resultingMesh, true, false, true);
         clipMesh(mesh2, mesh1, resultingMesh, true, false, false);
-
-        return resultingMesh;
     }
 
-    IfcGeometry boolSubtract(IfcGeometry& mesh1, IfcGeometry& mesh2)
+    void boolSubtract(IfcGeometry& resultingMesh, IfcGeometry& mesh1, IfcGeometry& mesh2)
     {
-
-        IfcGeometry resultingMesh;
 
         clipMesh(mesh1, mesh2, resultingMesh, true, false, false);
         clipMesh(mesh2, mesh1, resultingMesh, false, true, false);
-
-        return resultingMesh;
     }
 
     // TODO: I don't think XOR works right now...
-    IfcGeometry boolXOR(IfcGeometry& mesh1, IfcGeometry& mesh2)
+    void boolXOR(IfcGeometry& resultingMesh, IfcGeometry& mesh1, IfcGeometry& mesh2)
     {
-        IfcGeometry resultingMesh;
-
         clipMesh(mesh1, mesh2, resultingMesh, true, false, false);
         clipMesh(mesh2, mesh1, resultingMesh, true, false, false);
-
-        return resultingMesh;
     }
 
     csgjscpp::Model IfcGeometryToCSGModel(const IfcGeometry& mesh1)
@@ -126,14 +110,12 @@ namespace webifc
         return csgjscpp::modelfrompolygons(polygons1);
     }
 
-    IfcGeometry boolSubtract_CSGJSCPP(const IfcGeometry& mesh1, const IfcGeometry& mesh2)
+    void boolSubtract_CSGJSCPP(const IfcGeometry& mesh1, const IfcGeometry& mesh2, IfcGeometry& result)
     {
         auto model1 = IfcGeometryToCSGModel(mesh1);
         auto model2 = IfcGeometryToCSGModel(mesh2);
 
         auto m = csgjscpp::csgsubtract(model1, model2);
-
-        IfcGeometry result;
 
         for (uint32_t i = 0; i < m.indices.size(); i += 3)
         {
@@ -151,8 +133,6 @@ namespace webifc
 
             result.AddFace(a, b, c);
         }
-
-        return result;
     }
 
     glm::dvec3 GetOffset(glm::dvec3 pt, glm::dvec3 center, glm::dvec3 extents)
@@ -216,7 +196,7 @@ namespace webifc
         return brush;
     }
 
-    IfcGeometry boolSubtract_GODOT(const IfcGeometry& mesh1, const IfcGeometry& mesh2)
+    void boolSubtract_GODOT(IfcGeometry& result, const IfcGeometry& mesh1, const IfcGeometry& mesh2)
     {
 
         auto model1 = IfcGeometryToCSGBrush(mesh1);
@@ -226,8 +206,6 @@ namespace webifc
 
         CSGBrushOperation op;
         op.merge_brushes(CSGBrushOperation::OPERATION_SUBSTRACTION, *model1, *model2, *resultBrush, 0.001);
-
-        IfcGeometry result;
 
         for (uint32_t i = 0; i < resultBrush->faces.size(); i ++) {
             auto face = resultBrush->faces.get(i);
@@ -242,7 +220,5 @@ namespace webifc
 
             result.AddFace(a, c, b);
         }
-
-        return result;
     }
-    }
+}
