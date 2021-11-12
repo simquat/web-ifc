@@ -6,13 +6,12 @@
 #include <fstream>
 #include <filesystem>
 #include <numeric>
-#include <algorithm>
-#include <future>
 
 #include "include/web-ifc.h"
 #include "include/web-ifc-geometry.h"
 #include "include/math/triangulate-with-boundaries.h"
 #include "include/ifc2x4.h"
+#include "include/JobLoader.h"
 
 std::string ReadFile(std::wstring filename)
 {
@@ -65,91 +64,6 @@ std::vector<webifc::IfcFlatMesh> LoadAllTest(webifc::IfcLoader& loader, webifc::
     }
 
     return meshes;
-}
-
-std::vector<std::vector<uint32_t>> GetJobs(webifc::IfcLoader& loader)
-{
-    int MAX_JOB_SIZE = 100;
-
-    std::vector<std::vector<uint32_t>> jobs;
-
-    for (auto type : ifc2x4::IfcElements)
-    {
-        auto elements = loader.GetExpressIDsWithType(type);
-        if (!elements.empty())
-        {
-            for (int offset = 0; offset < elements.size(); offset += MAX_JOB_SIZE)
-            {
-                int count = std::min(offset + MAX_JOB_SIZE, (int)elements.size()) - offset;
-                std::vector<uint32_t> job(count);
-                for (int i = 0; i < count; i++)
-                {
-                    job[i] = elements[offset + i];
-                }
-                jobs.push_back(std::move(job));
-            }
-        }
-    }
-
-    return jobs;
-}
-
-std::vector<webifc::IfcFlatMesh> LoadAllMTTest(webifc::IfcLoader& loader)
-{
-    int numWorkers = 8;
-
-    std::vector<webifc::IfcLoader> loaders(numWorkers);
-    std::vector<std::unique_ptr<webifc::IfcGeometryLoader>> geomLoaders(numWorkers);
-    std::vector<std::future<void>> futures(numWorkers);
-
-    auto jobs = GetJobs(loader);
-    int jobCounter = 0;
-    std::mutex jobMtx;
-
-    std::cout << jobs.size() << "jobs" << std::endl;
-
-    for (auto& job : jobs)
-    {
-        //std::cout << job.size() << std::endl;
-    }
-
-    for (int i = 0; i < numWorkers; i++)
-    {
-        // read only copy of the original loader
-        loaders[i] = webifc::IfcLoader(loader);
-        geomLoaders[i] = std::make_unique<webifc::IfcGeometryLoader>(loaders[i]);
-
-        int worker = i;
-
-        futures[i] = std::async([&geomLoaders, &jobMtx, &jobCounter, &jobs, worker]()
-                                {
-                                    while (true)
-                                    {
-                                        int jobIndex = 0;
-                                        jobMtx.lock();
-                                        jobIndex = jobCounter++;
-                                        jobMtx.unlock();
-                                        if (jobIndex >= jobs.size())
-                                        {
-                                            break;
-                                        }
-                                        auto& job = jobs[jobIndex];
-
-                                        for (auto& id : job)
-                                        {
-                                            geomLoaders[worker]->GetFlatMesh(id);
-                                        }
-                                    }
-                               });
-    }
-
-
-    for (int i = 0; i < numWorkers; i++)
-    {
-        futures[i].get();
-    }
-
-    return {};
 }
 
 void DumpRefs(std::unordered_map<uint32_t, std::vector<uint32_t>>& refs)
@@ -353,7 +267,15 @@ int main()
     start = webifc::ms();
 
     //SpecificLoadTest(loader, geometryLoader, 2615);
-    LoadAllMTTest(loader);
+    auto jobs = GetJobs(loader);
+    std::cout << jobs.size() << std::endl;
+    JobLoader jobLoader;
+    int j = 0;
+    jobLoader.Start(loader, jobs, [&](const Job& job, Progress progress)
+                    {
+                        j++;
+                    });
+    std::cout << j << std::endl;
     //auto meshes = LoadAllTest(loader, geometryLoader);
     auto trans = webifc::FlattenTransformation(geometryLoader.GetCoordinationMatrix());
 
