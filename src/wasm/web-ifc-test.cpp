@@ -271,11 +271,20 @@ int main()
     std::cout << jobs.size() << std::endl;
     JobLoader jobLoader;
     int j = 0;
-    jobLoader.Start(loader, jobs, [&](const Job& job, Progress progress)
+    int totalVertices = 0;
+    jobLoader.Start(loader, jobs, [&](const Job& job, const JobLoader::TransferBuffer& transferBuffer, Progress progress)
                     {
                         j++;
+                        for (auto& mesh : transferBuffer.meshes)
+                        {
+                            for (auto& geom : mesh.geometries)
+                            {
+                                totalVertices += geom.v_size;
+                            }
+                        }
                     });
     std::cout << j << std::endl;
+    std::cout << totalVertices << std::endl;
     //auto meshes = LoadAllTest(loader, geometryLoader);
     auto trans = webifc::FlattenTransformation(geometryLoader.GetCoordinationMatrix());
 

@@ -128,6 +128,22 @@ namespace webifc
 
 		}
 
+		IfcGeometry(IfcGeometry&& other):
+			vertexData(std::move(other.vertexData)),
+			indexData(std::move(other.indexData))
+		{
+			std::swap(other.numPoints, numPoints);
+			std::swap(other.numFaces, numFaces);
+		}
+
+		void operator=(IfcGeometry&& other)
+		{
+			std::swap(other.vertexData, vertexData);
+			std::swap(other.indexData, indexData);
+			std::swap(other.numPoints, numPoints);
+			std::swap(other.numFaces, numFaces);
+		}
+
 		inline void AddPoint(glm::dvec4& pt, glm::dvec3& n)
 		{
 			glm::dvec3 p = pt;
@@ -661,7 +677,7 @@ namespace webifc
 
 		if (geomIt != geometryMap.end())
 		{
-			auto meshGeom = geomIt->second;
+			auto& meshGeom = geomIt->second;
 
 			if (meshGeom.numFaces)
 			{
@@ -711,7 +727,7 @@ namespace webifc
 
 		if (geomIt != geometryMap.end())
 		{
-			auto meshGeom = geomIt->second;
+			auto& meshGeom = geomIt->second;
 
 			if (meshGeom.numFaces)
 			{

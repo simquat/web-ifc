@@ -116,7 +116,7 @@ namespace webifc
         return loops;
     }
 
-    IfcGeometry retriangulateMesh(const IfcGeometry& mesh, MeshIntersections& intersections, IfcGeometry& outputMesh)
+    void retriangulateMesh(const IfcGeometry& mesh, MeshIntersections& intersections, IfcGeometry& outputMesh)
     {
         for (uint32_t i = 0; i < mesh.numFaces; i++)
         {
@@ -220,8 +220,6 @@ namespace webifc
                 outputMesh.AddFace(a, b, c);
             }
         }
-
-        return outputMesh;
     }
 
     struct AABB

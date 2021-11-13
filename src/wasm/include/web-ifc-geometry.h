@@ -193,6 +193,11 @@ namespace webifc
 			return _coordinationMatrix;
 		}
 
+		std::unordered_map<uint32_t, IfcGeometry> _expressIDToGeometry;
+
+		MemoryPool<double> _doublePool;
+		MemoryPool<uint32_t> _uintPool;
+
 	private:
         glm::dmat4 _transformation;
 		GeometryStatistics _statistics;
@@ -950,7 +955,7 @@ namespace webifc
 
 			IfcGeometry r(_doublePool, _uintPool);
 			result.DeNormalize(r, center, extents);
-			result = r;
+			result = std::move(r);
 		}
 
 		std::vector<glm::dvec3> ReadIfcCartesianPointList3D(uint32_t expressID)
@@ -2506,9 +2511,5 @@ namespace webifc
 		glm::dmat4 _coordinationMatrix = glm::dmat4(1.0);
 		bool _isCoordinated = false;
 		IfcLoader& _loader;
-		std::unordered_map<uint32_t, IfcGeometry> _expressIDToGeometry;
-
-		MemoryPool<double> _doublePool;
-		MemoryPool<uint32_t> _uintPool;
 	};
 }

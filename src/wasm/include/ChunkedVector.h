@@ -76,6 +76,20 @@ public:
 		}
 	}
 
+	PoolBackedChunkedVector(PoolBackedChunkedVector&& other)
+	{
+		std::swap(other._chunks, _chunks);
+		std::swap(other._count, _count);
+		std::swap(other._pool, _pool);
+	}
+
+	void operator=(PoolBackedChunkedVector&& other)
+	{
+		std::swap(other._chunks, _chunks);
+		std::swap(other._count, _count);
+		std::swap(other._pool, _pool);
+	}
+
 	inline uint32_t size()
 	{
 		return _count;
