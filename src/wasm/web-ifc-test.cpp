@@ -267,7 +267,7 @@ int main()
     start = webifc::ms();
 
     //SpecificLoadTest(loader, geometryLoader, 2615);
-    auto jobs = GetJobs(loader);
+    auto jobs = GetJobs(loader, ifc2x4::IfcElements);
     std::cout << jobs.size() << std::endl;
     JobLoader jobLoader;
     int j = 0;

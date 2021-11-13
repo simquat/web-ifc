@@ -134,7 +134,7 @@ namespace webifc
 			return _metaData->_materialDefinitions;
 		}
 
-		std::vector<uint32_t> GetExpressIDsWithType(uint32_t type)
+		std::vector<uint32_t> GetExpressIDsWithType(uint32_t type) const
 		{
 			auto& list = _metaData->ifcTypeToLineID[type];
 			std::vector<uint32_t> ret(list.size());

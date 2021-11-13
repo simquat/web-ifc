@@ -15,6 +15,7 @@
 
 #include "include/web-ifc.h"
 #include "include/web-ifc-geometry.h"
+#include "include/JobLoader.h"
 
 #include "version.h"
 
@@ -151,6 +152,8 @@ void StreamMeshes(uint32_t modelID, std::vector<uint32_t> expressIds, emscripten
 
 void StreamAllMeshesWithTypes(uint32_t modelID, const std::vector<uint32_t>& types, emscripten::val callback)
 {
+    std::cout << "StreamAllMeshesWithTypes" << std::endl;
+
     auto& loader = loaders[modelID];
 
     if (!loader)
@@ -158,11 +161,14 @@ void StreamAllMeshesWithTypes(uint32_t modelID, const std::vector<uint32_t>& typ
         return;
     }
 
-    for (auto& type : types)
-    {
-        auto elements = loader->GetExpressIDsWithType(type);
-        StreamMeshes(modelID, elements, callback);
-    }
+    auto jobs = GetJobs(*(loader.get()), ifc2x4::IfcElements);
+    
+    JobLoader jobLoader;
+
+    jobLoader.Start(*(loader.get()), jobs, [&](const Job& job, const JobLoader::TransferBuffer& transferBuffer, Progress progress)
+                    {
+                        callback(transferBuffer, progress);
+                    });
 }
 
 void StreamAllMeshesWithTypesVal(uint32_t modelID, emscripten::val typesVal, emscripten::val callback)
@@ -241,17 +247,6 @@ std::vector<webifc::IfcFlatMesh> LoadAllGeometry(uint32_t modelID)
     }
 
     return meshes;
-}
-
-webifc::IfcGeometry GetGeometry(uint32_t modelID, uint32_t expressID)
-{
-    auto& geomLoader = geomLoaders[modelID];
-    if (!geomLoader)
-    {
-        return {};
-    }
-
-    return geomLoader->GetCachedGeometry(expressID);
 }
 
 std::vector<webifc::LoaderError> GetAndClearErrors(uint32_t modelID)
@@ -678,15 +673,6 @@ extern "C" bool IsModelOpen(uint32_t modelID)
     
 EMSCRIPTEN_BINDINGS(my_module) {
 
-    emscripten::class_<webifc::IfcGeometry>("IfcGeometry")
-        .constructor<>()
-        .function("GetVertexData", &webifc::IfcGeometry::GetVertexData)
-        .function("GetVertexDataSize", &webifc::IfcGeometry::GetVertexDataSize)
-        .function("GetIndexData", &webifc::IfcGeometry::GetIndexData)
-        .function("GetIndexDataSize", &webifc::IfcGeometry::GetIndexDataSize)
-        ;
-
-
     emscripten::value_object<glm::dvec4>("dvec4")
         .field("x", &glm::dvec4::x)
         .field("y", &glm::dvec4::y)
@@ -694,6 +680,34 @@ EMSCRIPTEN_BINDINGS(my_module) {
         .field("w", &glm::dvec4::w)
         ;
 
+    emscripten::value_object<Progress>("Progress")
+        .field("completed", &Progress::completed)
+        .field("total", &Progress::total)
+        .field("ratio", &Progress::ratio)
+        ;
+
+    emscripten::value_object<JobLoader::TransferrableMesh>("TransferrableMesh")
+        .field("expressID", &JobLoader::TransferrableMesh::expressID)
+        .field("geometries", &JobLoader::TransferrableMesh::geometries)
+        ;
+
+    emscripten::value_object<JobLoader::TransferrableGeometry>("TransferrableGeometry")
+        .field("color", &JobLoader::TransferrableGeometry::color)
+        .field("flatTransformation", &JobLoader::TransferrableGeometry::flatTransformation)
+        .field("geometryExpressID", &JobLoader::TransferrableGeometry::geometryExpressID)
+        .field("v_offset", &JobLoader::TransferrableGeometry::v_offset)
+        .field("v_size", &JobLoader::TransferrableGeometry::v_size)
+        .field("i_offset", &JobLoader::TransferrableGeometry::i_offset)
+        .field("i_size", &JobLoader::TransferrableGeometry::i_size)
+        ;
+        
+    emscripten::value_object<JobLoader::TransferBuffer>("TransferBuffer")
+        .field("meshes", &JobLoader::TransferBuffer::meshes)
+        .field("vertexDataPtr", &JobLoader::TransferBuffer::vertexDataPtr)
+        .field("vertexDataSize", &JobLoader::TransferBuffer::vertexDataSize)
+        .field("indexDataPtr", &JobLoader::TransferBuffer::indexDataPtr)
+        .field("indexDataSize", &JobLoader::TransferBuffer::indexDataSize)
+        ;
 
     emscripten::value_object<webifc::LoaderSettings>("LoaderSettings")
         .field("COORDINATE_TO_ORIGIN", &webifc::LoaderSettings::COORDINATE_TO_ORIGIN)
@@ -746,6 +760,9 @@ EMSCRIPTEN_BINDINGS(my_module) {
     emscripten::register_vector<webifc::LoaderError>("LoaderErrorVector");
 
     emscripten::register_vector<webifc::IfcPlacedGeometry>("IfcPlacedGeometryVector");
+    
+    emscripten::register_vector<JobLoader::TransferrableMesh>("TransferrableMeshVector");
+    emscripten::register_vector<JobLoader::TransferrableGeometry>("TransferrableGeometryVector");
 
     emscripten::value_object<webifc::IfcFlatMesh>("IfcFlatMesh")
         .field("geometries", &webifc::IfcFlatMesh::geometries)
@@ -760,7 +777,6 @@ EMSCRIPTEN_BINDINGS(my_module) {
     emscripten::function("CreateModel", &CreateModel);
     emscripten::function("CloseModel", &CloseModel);
     emscripten::function("IsModelOpen", &IsModelOpen);
-    emscripten::function("GetGeometry", &GetGeometry);
     emscripten::function("GetFlatMesh", &GetFlatMesh);
     emscripten::function("StreamMeshes", &StreamMeshes);
     emscripten::function("GetCoordinationMatrix", &GetCoordinationMatrix);

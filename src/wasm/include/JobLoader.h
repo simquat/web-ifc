@@ -27,11 +27,11 @@ struct Progress
     double ratio;
 };
 
-std::vector<Job> GetJobs(webifc::IfcLoader& loader)
+std::vector<Job> GetJobs(const webifc::IfcLoader& loader, const std::vector<uint32_t>& types)
 {
     std::vector<Job> jobs;
 
-    for (auto type : ifc2x4::IfcElements)
+    for (auto type : types)
     {
         auto elements = loader.GetExpressIDsWithType(type);
         if (!elements.empty())
@@ -81,7 +81,14 @@ public:
     {
         std::vector<float> vertexData;
         std::vector<uint32_t> indexData;
+
         std::vector<TransferrableMesh> meshes;
+
+        uint32_t vertexDataPtr;
+        uint32_t vertexDataSize;
+
+        uint32_t indexDataPtr;
+        uint32_t indexDataSize;
 
         void Reset()
         {
@@ -184,6 +191,11 @@ public:
 
                                             transferBuffer->indexData.reserve(totalISize);
                                             transferBuffer->vertexData.reserve(totalVSize);
+
+                                            transferBuffer->vertexDataPtr = (uint32_t)transferBuffer->vertexData.data();
+                                            transferBuffer->vertexDataSize = (uint32_t)totalVSize;
+                                            transferBuffer->indexDataPtr = (uint32_t)transferBuffer->indexData.data();
+                                            transferBuffer->indexDataSize = (uint32_t)totalISize;
 
                                             for (auto& tmesh : transferBuffer->meshes)
                                             {

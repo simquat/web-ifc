@@ -62,7 +62,8 @@ namespace webifc
 
 			if (it == _expressIDToGeometry.end())
 			{
-				return IfcGeometry(_doublePool, _uintPool);
+				static IfcGeometry geom(_doublePool, _uintPool);
+				return geom;
 			}
 
 			return it->second;
@@ -239,7 +240,7 @@ namespace webifc
 					{
 						if (materialDefinitions.count(item.second) != 0)
 						{
-							auto& defs = materialDefinitions.find(item.second);
+							auto defs = materialDefinitions.find(item.second);
 							if (defs != materialDefinitions.end())
 							{
 								for (auto def : defs->second)

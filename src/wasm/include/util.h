@@ -1259,7 +1259,7 @@ namespace webifc
 
 		glm::dmat4 trans = mat * mesh.transformation;
 
-		auto& geom = geometryMap.find(mesh.expressID);
+		auto geom = geometryMap.find(mesh.expressID);
 
 		complete += ToObj(geom->second, offset, trans);
 
