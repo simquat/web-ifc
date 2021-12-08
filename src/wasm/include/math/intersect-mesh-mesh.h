@@ -6,6 +6,7 @@
 
 #include <map>
 #include <algorithm>
+#include <stack>
 
 #include "../../deps/glm/glm/glm.hpp"
 #include "../util.h"
@@ -225,51 +226,143 @@ namespace webifc
         return outputMesh;
     }
 
-    struct AABB
+    struct BVHNode
     {
-        glm::dvec3 min = glm::dvec3(DBL_MAX, DBL_MAX, DBL_MAX);
-        glm::dvec3 max = glm::dvec3(-DBL_MAX, -DBL_MAX, -DBL_MAX);
+        uint32_t start;
+        uint32_t end;
+        uint32_t left = 0;
+        uint32_t right = 0;
+        AABB box;
+
+        bool IsLeaf() const
+        {
+            return left == 0 && right == 0;
+        }
+        
+        bool Overlaps(const BVHNode& other) const
+        {
+            return box.intersects(other.box);
+        }
     };
 
-    AABB GetAABB(const IfcGeometry& mesh)
+    struct BVH
     {
-        AABB aabb;
+        std::vector<AABB> boxes;
+        std::vector<BVHNode> nodes;
 
-        for (uint32_t i = 0; i < mesh.numPoints; i++)
+        template <typename T>
+        void Intersect(const BVH& other, T callback)
         {
-            aabb.min = glm::min(aabb.min, mesh.GetPoint(i));
-            aabb.max = glm::max(aabb.max, mesh.GetPoint(i));
+            std::stack<std::pair<uint32_t, uint32_t>> bvhStack;
+            bvhStack.emplace(0, 0);
+
+            while (!bvhStack.empty())
+            {
+                const auto [i1, i2] = bvhStack.top();
+                bvhStack.pop();
+
+                auto& n1 = nodes[i1];
+                auto& n2 = other.nodes[i2];
+
+                if (n1.Overlaps(n2))
+                {
+                    if (n1.IsLeaf() && n2.IsLeaf())
+                    {
+                        // both leaves, compare contents
+                        for (uint32_t i = n1.start; i < n1.end; i++)
+                        {
+                            for (uint32_t j = n2.start; j < n2.end; j++)
+                            {
+                                if (boxes[i].intersects(other.boxes[j]))
+                                {
+                                    callback(boxes[i].index, other.boxes[j].index);
+                                }
+                            }
+                        }
+                    }
+                    else if (n1.IsLeaf())
+                    {
+                        bvhStack.emplace(i1, n2.left);
+                        bvhStack.emplace(i1, n2.right);
+                    }
+                    else if (n2.IsLeaf())
+                    {
+                        bvhStack.emplace(n1.left, i2);
+                        bvhStack.emplace(n1.right, i2);
+                    }
+                    else
+                    {
+                        // neither are leaves, split n1
+                        bvhStack.emplace(n1.left, i2);
+                        bvhStack.emplace(n1.right, i2);
+                    }
+                }
+                else
+                {
+                    // don't care
+                }
+            }
+        }
+    };
+
+    int MakeBVH(std::vector<AABB>& boxes, std::vector<BVHNode>& nodes, int start, int end, int axis, int depth, int& offset)
+    {
+        int nodeID = offset++;
+        
+        nodes.resize(nodeID + 1);
+        BVHNode& node = nodes[nodeID];
+
+        node.start = start;
+        node.end = end;
+
+        for (int i = start; i < end; i++)
+        {
+            node.box.merge(boxes[i]);
         }
 
-        return aabb;
+        nodes.reserve(nodeID + 1);
+
+        if (depth == 6)
+        {
+            return nodeID;
+        }
+
+
+        int size = end - start;
+        
+        // ignore cubes
+        if (size <= 12)
+        {
+            return nodeID;
+        }
+
+        int middle = (end + start) / 2;
+
+        std::nth_element(boxes.begin() + start, boxes.begin() + middle, boxes.begin() + end, [&](const AABB& first, const AABB& second)
+                  {
+                      return first.center[axis] > second.center[axis];
+                  });
+
+        nodes[nodeID].left = MakeBVH(boxes, nodes, start, middle, (axis + 1) % 3, depth + 1, offset);
+        nodes[nodeID].right = MakeBVH(boxes, nodes, middle, end, (axis + 1) % 3, depth + 1, offset);
+
+        return nodeID;
     }
 
-    struct Partition
+    BVH MakeBVH(const IfcGeometry& mesh)
     {
-        glm::dvec3 cellsize;
-    };
-
-    const uint32_t GRID_CELLS_AXIS = 100;
-
-    Partition MakePartition(const IfcGeometry& m, const AABB& aabb)
-    {
-        Partition p;
-
-        // compute cellsize of partition
-        glm::dvec3 size = aabb.max - aabb.min;
-        p.cellsize = size / static_cast<double>(GRID_CELLS_AXIS);
-
-        std::vector<int> parts(m.numFaces);
-
-        // add all faces to partition
-        for (uint32_t i = 0; i < m.numFaces; i++)
+        BVH bvh;
+        bvh.boxes = std::vector<AABB>(mesh.numFaces);
+        for (uint32_t i = 0; i < mesh.numFaces; i++)
         {
-            Face t1 = m.GetFace(i);
-
-            // add face index for all cells
+            bvh.boxes[i] = mesh.GetFaceBox(i);
         }
 
-        return p;
+        int offset = 0;
+        // start BVH at Y axis
+        MakeBVH(bvh.boxes, bvh.nodes, 0, bvh.boxes.size(), 1, 0, offset);
+
+        return bvh;
     }
 
     void intersectMeshMesh(const IfcGeometry& mesh1, const IfcGeometry& mesh2, IfcGeometry& result1, IfcGeometry& result2)
@@ -277,39 +370,39 @@ namespace webifc
         MeshIntersections meshIntersections1;
         MeshIntersections meshIntersections2;
 
-        for (uint32_t i = 0; i < mesh1.numFaces; i++)
-        {
-            for (uint32_t j = 0; j < mesh2.numFaces; j++)
-            {
-                Face t1 = mesh1.GetFace(i);
-                Face t2 = mesh2.GetFace(j);
+        auto bvh1 = MakeBVH(mesh1);
+        auto bvh2 = MakeBVH(mesh2);
 
-                const glm::dvec3& a = mesh1.GetPoint(t1.i0);
-                const glm::dvec3& b = mesh1.GetPoint(t1.i1);
-                const glm::dvec3& c = mesh1.GetPoint(t1.i2);
+        bvh1.Intersect(bvh2, [&](uint32_t i, uint32_t j)
+                       {
+                           Face t1 = mesh1.GetFace(i);
+                           Face t2 = mesh2.GetFace(j);
 
-                const glm::dvec3& d = mesh2.GetPoint(t2.i0);
-                const glm::dvec3& e = mesh2.GetPoint(t2.i1);
-                const glm::dvec3& f = mesh2.GetPoint(t2.i2);
+                           const glm::dvec3& a = mesh1.GetPoint(t1.i0);
+                           const glm::dvec3& b = mesh1.GetPoint(t1.i1);
+                           const glm::dvec3& c = mesh1.GetPoint(t1.i2);
 
-                glm::dvec3 n = computeNormal(a, b, c);
+                           const glm::dvec3& d = mesh2.GetPoint(t2.i0);
+                           const glm::dvec3& e = mesh2.GetPoint(t2.i1);
+                           const glm::dvec3& f = mesh2.GetPoint(t2.i2);
 
-                TriTriResult intersectionLine = intersect_triangle_triangle(a, b, c, d, e, f);
+                           glm::dvec3 n = computeNormal(a, b, c);
 
-                if (intersectionLine.hasIntersection)
-                {
-                    meshIntersections1[i].push_back(MeshIntersection{
-                        intersectionLine,
-                        j
-                    });
+                           TriTriResult intersectionLine = intersect_triangle_triangle(a, b, c, d, e, f);
 
-                    meshIntersections2[j].push_back(MeshIntersection{
-                        intersectionLine,
-                        i
-                    });
-                }
-            }
-        }
+                           if (intersectionLine.hasIntersection)
+                           {
+                               meshIntersections1[i].push_back(MeshIntersection{
+                                   intersectionLine,
+                                   j
+                                                               });
+
+                               meshIntersections2[j].push_back(MeshIntersection{
+                                   intersectionLine,
+                                   i
+                                                               });
+                           }
+                       });
 
         /*
         IfcGeometry m1;

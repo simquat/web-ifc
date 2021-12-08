@@ -109,6 +109,27 @@ namespace webifc
 		return offset.x < EPS_SMALL && offset.y < EPS_SMALL && offset.z < EPS_SMALL;
 	}
 
+	struct AABB
+	{
+		uint32_t index;
+		glm::dvec3 min = glm::dvec3(DBL_MAX, DBL_MAX, DBL_MAX);
+		glm::dvec3 max = glm::dvec3(-DBL_MAX, -DBL_MAX, -DBL_MAX);
+		glm::dvec3 center = glm::dvec3();
+
+		bool intersects(const AABB& other) const
+		{
+			return (max.x >= other.min.x && other.max.x >= min.x &&
+					max.y >= other.min.y && other.max.y >= min.y &&
+					max.z >= other.min.z && other.max.z >= min.z);
+		}
+
+		void merge(const AABB& other)
+		{
+			min = glm::min(min, other.min);
+			max = glm::max(max, other.max);
+		}
+	};
+
 	struct IfcGeometry
 	{
 		std::vector<float> fvertexData;
@@ -192,6 +213,28 @@ namespace webifc
 			f.i1 = indexData[index * 3 + 1];
 			f.i2 = indexData[index * 3 + 2];
 			return f;
+		}
+
+		inline AABB GetFaceBox(uint32_t index) const
+		{
+			AABB aabb;
+			aabb.index = index;
+
+			glm::dvec3 a = GetPoint(indexData[index * 3 + 0]);
+			glm::dvec3 b = GetPoint(indexData[index * 3 + 1]);
+			glm::dvec3 c = GetPoint(indexData[index * 3 + 2]);
+
+			aabb.min = glm::min(a, aabb.min);
+			aabb.min = glm::min(b, aabb.min);
+			aabb.min = glm::min(c, aabb.min);
+
+			aabb.max = glm::max(a, aabb.max);
+			aabb.max = glm::max(b, aabb.max);
+			aabb.max = glm::max(c, aabb.max);
+
+			aabb.center = (aabb.max + aabb.min) / 2.0;
+
+			return aabb;
 		}
 
 		inline glm::dvec3 GetPoint(uint32_t index) const
@@ -308,6 +351,19 @@ namespace webifc
 			return vertexData.empty();
 		}
 	};
+
+	AABB GetAABB(const IfcGeometry& mesh)
+	{
+		AABB aabb;
+
+		for (uint32_t i = 0; i < mesh.numPoints; i++)
+		{
+			aabb.min = glm::min(aabb.min, mesh.GetPoint(i));
+			aabb.max = glm::max(aabb.max, mesh.GetPoint(i));
+		}
+
+		return aabb;
+	}
 
 	bool equals2d(glm::dvec2 A, glm::dvec2 B, double eps = 0)
 	{

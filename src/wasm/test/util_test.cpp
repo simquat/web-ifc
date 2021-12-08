@@ -1,8 +1,82 @@
+
+#include <stack>
+
 #include "../deps/tinycpptest/TinyCppTest.hpp"
 #include "../include/util.h"
 #include "../include/math/triangulate-with-boundaries.h"
+#include "../include/math/intersect-mesh-mesh.h"
+
 
 using namespace webifc;
+
+void AddRandomTri(webifc::IfcGeometry& geom, double sceneSize, double triSize)
+{
+	glm::dvec3 a(webifc::RandomDouble(0, sceneSize),
+			     webifc::RandomDouble(0, sceneSize),
+			     webifc::RandomDouble(0, sceneSize));
+
+	glm::dvec3 b(webifc::RandomDouble(triSize / 4, triSize),
+				 webifc::RandomDouble(triSize / 4, triSize),
+				 webifc::RandomDouble(triSize / 4, triSize));
+
+	glm::dvec3 c(webifc::RandomDouble(triSize / 4, triSize),
+				 webifc::RandomDouble(triSize / 4, triSize),
+				 webifc::RandomDouble(triSize / 4, triSize));
+
+	geom.AddFace(a, a + b, a + c);
+}
+
+webifc::IfcGeometry GetRandomMesh(int size)
+{
+	webifc::IfcGeometry geom;
+
+	for (int i = 0; i < size; i++)
+	{
+		AddRandomTri(geom, 10, 0.5);
+	}
+
+	return geom;
+}
+
+TEST(BVHTest)
+{
+	int test_size = 1000;
+	int numTests = 100;
+
+	srand(6788);
+
+	for (int i = 0; i < numTests; i++)
+	{
+		auto m1 = GetRandomMesh(test_size);
+		auto m2 = GetRandomMesh(test_size);
+
+		auto bvh1 = MakeBVH(m1);
+		auto bvh2 = MakeBVH(m2);
+
+		int collisionsBoxes = 0;
+		for (auto& b1 : bvh1.boxes)
+		{
+			for (auto& b2 : bvh2.boxes)
+			{
+				if (b1.intersects(b2))
+				{
+					collisionsBoxes++;
+				}
+			}
+		}
+
+		int collisionsBVH = 0;
+
+		bvh1.Intersect(bvh2, [&](int i, int j)
+					   {
+						   collisionsBVH++;
+					   });
+
+		std::cout << collisionsBVH << std::endl;
+
+		ASSERT_EQ(collisionsBoxes, collisionsBVH);
+	}
+}
 
 TEST(TriangleWalkInnerEdge)
 {
