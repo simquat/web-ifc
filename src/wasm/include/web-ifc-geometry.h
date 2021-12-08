@@ -924,7 +924,10 @@ namespace webifc
 				IfcGeometry r1;
 				IfcGeometry r2;
 
-				intersectMeshMesh(first, second, r1, r2);
+				BVH bvh1;
+				BVH bvh2;
+
+				intersectMeshMesh(first, second, r1, r2, bvh1, bvh2);
 
 				if (_loader.GetSettings().DUMP_CSG_MESHES)
 				{
@@ -932,7 +935,7 @@ namespace webifc
 					DumpIfcGeometry(r2, L"r2.obj");
 				}
 
-				result = boolSubtract(r1, r2);
+				result = boolSubtract(r1, r2, bvh1, bvh2);
 			}
 			else
 			{

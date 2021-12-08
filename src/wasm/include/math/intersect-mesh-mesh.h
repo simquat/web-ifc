@@ -249,6 +249,7 @@ namespace webifc
     {
         std::vector<AABB> boxes;
         std::vector<BVHNode> nodes;
+        IfcGeometry const * ptr;
 
         template <typename T>
         void Intersect(const BVH& other, T callback)
@@ -303,6 +304,55 @@ namespace webifc
                 }
             }
         }
+
+        template <typename T>
+        bool IntersectRay(const glm::dvec3& origin, const glm::dvec3& dir, T callback)
+        {
+            std::stack<uint32_t> stack;
+            stack.push(0);
+            while (!stack.empty())
+            {
+                const auto& node = nodes[stack.top()];
+                stack.pop();
+
+                if (node.box.Intersect(origin, dir))
+                {
+                    // hit!
+                    if (node.IsLeaf())
+                    {
+                        // check boxes
+                        for (uint32_t i = node.start; i < node.end; i++)
+                        {
+                            const auto& box = boxes[i];
+                            if (box.Intersect(origin, dir))
+                            {
+                                if (callback(box.index))
+                                {
+                                    return true;
+                                }
+                            }
+                            else
+                            {
+                                // don't care
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // visit children
+                        stack.push(node.left);
+                        stack.push(node.right);
+                    }
+                }
+                else
+                {
+                    // ignore
+                }
+            }
+
+            return false;
+        }
+
     };
 
     int MakeBVH(std::vector<AABB>& boxes, std::vector<BVHNode>& nodes, int start, int end, int axis, int depth, int& offset)
@@ -352,6 +402,7 @@ namespace webifc
     BVH MakeBVH(const IfcGeometry& mesh)
     {
         BVH bvh;
+        bvh.ptr = &mesh;
         bvh.boxes = std::vector<AABB>(mesh.numFaces);
         for (uint32_t i = 0; i < mesh.numFaces; i++)
         {
@@ -365,13 +416,13 @@ namespace webifc
         return bvh;
     }
 
-    void intersectMeshMesh(const IfcGeometry& mesh1, const IfcGeometry& mesh2, IfcGeometry& result1, IfcGeometry& result2)
+    void intersectMeshMesh(const IfcGeometry& mesh1, const IfcGeometry& mesh2, IfcGeometry& result1, IfcGeometry& result2, BVH& bvh1, BVH& bvh2)
     {
         MeshIntersections meshIntersections1;
         MeshIntersections meshIntersections2;
 
-        auto bvh1 = MakeBVH(mesh1);
-        auto bvh2 = MakeBVH(mesh2);
+        bvh1 = MakeBVH(mesh1);
+        bvh2 = MakeBVH(mesh2);
 
         bvh1.Intersect(bvh2, [&](uint32_t i, uint32_t j)
                        {

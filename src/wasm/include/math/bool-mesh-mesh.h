@@ -15,7 +15,7 @@
 
 namespace webifc
 {
-    void clipMesh(IfcGeometry& source, IfcGeometry& target, IfcGeometry& result, bool invert, bool flip, bool keepBoundary)
+    void clipMesh(IfcGeometry& source, IfcGeometry& target, BVH& targetBVH, IfcGeometry& result, bool invert, bool flip, bool keepBoundary)
     {
         glm::dvec3 targetCenter;
         glm::dvec3 targetExtents;
@@ -36,7 +36,7 @@ namespace webifc
 
             if (IsInsideCenterExtents(triCenter, targetCenter, targetExtents))
             {
-                isInsideTarget = isInsideMesh(triCenter, n, target);
+                isInsideTarget = isInsideMesh(triCenter, n, *targetBVH.ptr, targetBVH);
             }
             else
             {
@@ -58,44 +58,44 @@ namespace webifc
         }
     }
 
-    IfcGeometry boolIntersect(IfcGeometry& mesh1, IfcGeometry& mesh2)
+    IfcGeometry boolIntersect(IfcGeometry& mesh1, IfcGeometry& mesh2, BVH bvh1, BVH bvh2)
     {
         IfcGeometry resultingMesh;
 
-        clipMesh(mesh1, mesh2, resultingMesh, false, false, true);
-        clipMesh(mesh2, mesh1, resultingMesh, false, false, false);
+        clipMesh(mesh1, mesh2, bvh2, resultingMesh, false, false, true);
+        clipMesh(mesh2, mesh1, bvh1, resultingMesh, false, false, false);
 
         return resultingMesh;
     }
 
-    IfcGeometry boolJoin(IfcGeometry& mesh1, IfcGeometry& mesh2)
+    IfcGeometry boolJoin(IfcGeometry& mesh1, IfcGeometry& mesh2, BVH bvh1, BVH bvh2)
     {
         IfcGeometry resultingMesh;
 
-        clipMesh(mesh1, mesh2, resultingMesh, true, false, true);
-        clipMesh(mesh2, mesh1, resultingMesh, true, false, false);
+        clipMesh(mesh1, mesh2, bvh2, resultingMesh, true, false, true);
+        clipMesh(mesh2, mesh1, bvh1, resultingMesh, true, false, false);
 
         return resultingMesh;
     }
 
-    IfcGeometry boolSubtract(IfcGeometry& mesh1, IfcGeometry& mesh2)
+    IfcGeometry boolSubtract(IfcGeometry& mesh1, IfcGeometry& mesh2, BVH bvh1, BVH bvh2)
     {
 
         IfcGeometry resultingMesh;
 
-        clipMesh(mesh1, mesh2, resultingMesh, true, false, false);
-        clipMesh(mesh2, mesh1, resultingMesh, false, true, false);
+        clipMesh(mesh1, mesh2, bvh2, resultingMesh, true, false, false);
+        clipMesh(mesh2, mesh1, bvh1, resultingMesh, false, true, false);
 
         return resultingMesh;
     }
 
     // TODO: I don't think XOR works right now...
-    IfcGeometry boolXOR(IfcGeometry& mesh1, IfcGeometry& mesh2)
+    IfcGeometry boolXOR(IfcGeometry& mesh1, IfcGeometry& mesh2, BVH bvh1, BVH bvh2)
     {
         IfcGeometry resultingMesh;
 
-        clipMesh(mesh1, mesh2, resultingMesh, true, false, false);
-        clipMesh(mesh2, mesh1, resultingMesh, true, false, false);
+        clipMesh(mesh1, mesh2, bvh2, resultingMesh, true, false, false);
+        clipMesh(mesh2, mesh1, bvh1, resultingMesh, true, false, false);
 
         return resultingMesh;
     }
