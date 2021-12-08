@@ -1134,9 +1134,10 @@ namespace webifc
         added = false;
         for (int i = 0; i < points.size(); i++)
         {
-            // TODO: looks like EPS_SMALL may not be enough here
+
             //if (equals2d(toGrid(min, dim, pt), toGrid(min, dim, points[i]()), EPS_SMALL))
-            if (equals2d(pt, points[i](), EPS_SMALL))
+            // we set this to EPS_BIG, or we get floating point errors where nearly-identical points cause a loop in the triangle walk
+            if (equals2d(pt, points[i](), EPS_BIG))
             {
                 return points[i];
             }
