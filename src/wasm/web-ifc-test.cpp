@@ -43,7 +43,9 @@ std::vector<webifc::IfcFlatMesh> LoadAllTest(webifc::IfcLoader& loader, webifc::
 
         for (int i = 0; i < elements.size(); i++)
         {
+            std::cout << elements[i] << std::endl;
             auto mesh = geometryLoader.GetFlatMesh(elements[i]);
+
 
             /*
             for (auto& geom : mesh.geometries)
@@ -230,12 +232,14 @@ int main()
     //return 0;
 
 
-    std::string content = ReadFile(L"D:/web-ifc-obb/benchmark/ifcfiles/BIM_Projekt_Golden_Nugget-Architektur_und_Ingenieurbau.ifc");
-    //std::string content = ReadFile(L"D:/web-ifc/src/wasm/build/output.ifc");
+    //std::string content = ReadFile(L"D:/web-ifc-obb/benchmark/ifcfiles/MAQ01-ARCMCP.ifc");
+    //std::string content = ReadFile(L"D:/web-ifc-obb/benchmark/ifcfiles/rac_basic_sample_project (1).ifc");
+    std::string content = ReadFile(L"D:/web-ifc/src/wasm/build/output.ifc");
+    //std::string content = ReadFile(L"D:/nda/I3d-299 BLDG 38 COVERED WALKWAYS_IFC[7].ifc");
 
     webifc::LoaderSettings set;
     set.COORDINATE_TO_ORIGIN = true;
-    set.DUMP_CSG_MESHES = false;
+    set.DUMP_CSG_MESHES = true;
     set.USE_FAST_BOOLS = true;
 
     webifc::IfcLoader loader(set);
@@ -261,7 +265,7 @@ int main()
 
     /*
     std::ofstream outputFile("output.ifc");
-    outputFile << loader.DumpSingleObjectAsIFC(120119);
+    outputFile << loader.DumpSingleObjectAsIFC(130842);
     outputFile.close();
     */
 
@@ -269,7 +273,8 @@ int main()
 
     start = webifc::ms();
 
-    //SpecificLoadTest(loader, geometryLoader, 2615);
+     //SpecificLoadTest(loader, geometryLoader, 12311);
+    //SpecificLoadTest(loader, geometryLoader, 335215);
     auto meshes = LoadAllTest(loader, geometryLoader);
     auto trans = webifc::FlattenTransformation(geometryLoader.GetCoordinationMatrix());
 

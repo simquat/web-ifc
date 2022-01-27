@@ -312,8 +312,8 @@ namespace webifc
 				{
 					IfcComposedMesh resultMesh;
 
-					auto origin = GetOrigin(mesh, _expressIDToGeometry);
-					auto normalizeMat = glm::translate(-origin);
+					auto origin = GetOrientation(mesh, _expressIDToGeometry);
+					auto normalizeMat = glm::inverse(origin);
 					auto flatElementMesh = flatten(mesh, _expressIDToGeometry, normalizeMat);
 
 					if (!flatElementMesh.IsEmpty())
@@ -330,7 +330,7 @@ namespace webifc
 					}
 
 					_expressIDToGeometry[line.expressID] = flatElementMesh;
-					resultMesh.transformation = glm::translate(origin);
+					resultMesh.transformation = origin;
 					resultMesh.expressID = line.expressID;
 					resultMesh.hasGeometry = true;
 					resultMesh.hasColor = true;
@@ -367,8 +367,8 @@ namespace webifc
 					auto firstMesh = GetMesh(firstOperandID);
 					auto secondMesh = GetMesh(secondOperandID);
 
-					auto origin = GetOrigin(firstMesh, _expressIDToGeometry);
-					auto normalizeMat = glm::translate(-origin);
+					auto origin = GetOrientation(mesh, _expressIDToGeometry);
+					auto normalizeMat = glm::inverse(origin);
 
 					auto flatFirstMesh = flatten(firstMesh, _expressIDToGeometry, normalizeMat);
 					auto flatSecondMesh = flatten(secondMesh, _expressIDToGeometry, normalizeMat);
@@ -377,7 +377,7 @@ namespace webifc
 					
 					_expressIDToGeometry[line.expressID] = resultMesh;
 					mesh.hasGeometry = true;
-					mesh.transformation = glm::translate(origin);
+					mesh.transformation = origin;
 
                     if (!mesh.hasColor && firstMesh.hasColor)
                     {
@@ -406,8 +406,8 @@ namespace webifc
 					auto firstMesh = GetMesh(firstOperandID);
 					auto secondMesh = GetMesh(secondOperandID);
 
-					auto origin = GetOrigin(firstMesh, _expressIDToGeometry);
-					auto normalizeMat = glm::translate(-origin);
+					auto origin = GetOrientation(mesh, _expressIDToGeometry);
+					auto normalizeMat = glm::inverse(origin);
 
 					auto flatFirstMesh = flatten(firstMesh, _expressIDToGeometry, normalizeMat);
 					auto flatSecondMesh = flatten(secondMesh, _expressIDToGeometry, normalizeMat);
@@ -423,7 +423,7 @@ namespace webifc
 
 					_expressIDToGeometry[line.expressID] = resultMesh;
 					mesh.hasGeometry = true;
-					mesh.transformation = glm::translate(origin);
+					mesh.transformation = origin;
                     if (!mesh.hasColor && firstMesh.hasColor)
                     {
                         mesh.hasColor = true;
@@ -1605,11 +1605,13 @@ namespace webifc
 
 			// build the caps
 			{
-				using Point = std::array<double, 2>;
-				int polygonCount = 1 + profile.holes.size(); //Main profile + holes
-				std::vector<std::vector<Point>> polygon(polygonCount);
+				//int polygonCount = 1 + profile.holes.size(); //Main profile + holes
 
 				glm::dvec3 normal = dir;
+
+				CDT::Triangulation<double> cdt(CDT::VertexInsertionOrder::AsProvided);
+				std::vector<CDT::Edge> edges;
+				std::vector<CDT::V2d<double>> verts;
 
 				for (int i = 0; i < profile.curve.points.size(); i++)
 				{
@@ -1617,9 +1619,11 @@ namespace webifc
 					glm::dvec4 et = glm::dvec4(glm::dvec3(pt, 0) + dir * distance, 1);
 
 					geom.AddPoint(et, normal);
-					polygon[0].push_back({ pt.x, pt.y });
+					verts.push_back({ pt.x, pt.y });
+					edges.push_back(CDT::Edge(i, (i + 1) % profile.curve.points.size()));
 				}
 
+				/*
 				for(int i = 0; i < profile.curve.points.size(); i++)
 				{
 					holesIndicesHash.push_back(false);
@@ -1641,11 +1645,19 @@ namespace webifc
 						geom.AddPoint(et, normal);
 						polygon[i + 1].push_back({ pt.x, pt.y }); //Index 0 is main profile; see earcut reference
 					}
-				}
+				}*/
 
-				std::vector<uint32_t> indices = mapbox::earcut<uint32_t>(polygon);
+				auto mapping = CDT::RemoveDuplicatesAndRemapEdges(verts, edges).mapping;
 
-				if (indices.size() < 3)
+				cdt.insertVertices(verts);
+				cdt.insertEdges(edges);
+
+				cdt.eraseOuterTrianglesAndHoles();
+
+				auto outVerts = cdt.vertices;
+				auto triangles = cdt.triangles;
+
+				if (triangles.empty())
 				{
 					// probably a degenerate polygon
 					_loader.ReportError({ LoaderErrorType::UNSPECIFIED, "degenerate polygon in extrude" });
@@ -1653,18 +1665,19 @@ namespace webifc
 				}
 
 				uint32_t offset = 0;
-				bool winding = GetWindingOfTriangle(geom.GetPoint(offset + indices[0]), geom.GetPoint(offset + indices[1]), geom.GetPoint(offset + indices[2]));
+				const auto& first = triangles[0];
+				bool winding = GetWindingOfTriangle(geom.GetPoint(offset + mapping[first.vertices[0]]), geom.GetPoint(offset + mapping[first.vertices[1]]), geom.GetPoint(offset + mapping[first.vertices[2]]));
 				bool flipWinding = !winding;
 
-				for (int i = 0; i < indices.size(); i += 3)
+				for (auto& t : triangles)
 				{
 					if (flipWinding)
 					{
-						geom.AddFace(offset + indices[i + 0], offset + indices[i + 2], offset + indices[i + 1]);
+						geom.AddFace(offset + mapping[t.vertices[0]], offset + mapping[t.vertices[2]], offset + mapping[t.vertices[1]]);
 					}
 					else
 					{
-						geom.AddFace(offset + indices[i + 0], offset + indices[i + 1], offset + indices[i + 2]);
+						geom.AddFace(offset + mapping[t.vertices[0]], offset + mapping[t.vertices[1]], offset + mapping[t.vertices[2]]);
 					}
 				}
 
@@ -1700,26 +1713,27 @@ namespace webifc
 					geom.AddPoint(et, normal);
 				}
 
-				for (int i = 0; i < indices.size(); i += 3)
+				for (auto& t : triangles)
 				{
 					if (flipWinding)
 					{
-						geom.AddFace(offset + indices[i + 0], offset + indices[i + 1], offset + indices[i + 2]);
+						geom.AddFace(offset + mapping[t.vertices[0]], offset + mapping[t.vertices[1]], offset + mapping[t.vertices[2]]);
 					}
 					else
 					{
-						geom.AddFace(offset + indices[i + 0], offset + indices[i + 2], offset + indices[i + 1]);
+						geom.AddFace(offset + mapping[t.vertices[0]], offset + mapping[t.vertices[2]], offset + mapping[t.vertices[1]]);
 					}
 				}
 			}
 
+			// build the inner segments
 			uint32_t capSize = profile.curve.points.size();
 			for (int i = 1; i < capSize; i++)
 			{
 				//https://github.com/tomvandig/web-ifc/issues/5
-				if (holesIndicesHash[i])
+				//if (holesIndicesHash[i])
 				{
-					continue;
+					//continue;
 				}
 
 				uint32_t bl = i - 1;

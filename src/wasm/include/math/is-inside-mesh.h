@@ -45,13 +45,13 @@ namespace webifc
                                  double dn = glm::dot(otherNormal, normal);
                                  if (std::fabs(distance) < EPS_BIG)
                                  {
-                                     if (dn >= 1 - EPS_SMALL)
+                                     if (dn >= 1 - EPS_BIG)
                                      {
                                          // normals facing same direction, means an inside boundary
                                          resultLocation = MeshLocation::BOUNDARY;
                                          return true; // stop search
                                      }
-                                     else if (dn <= -1 + EPS_SMALL)
+                                     else if (dn <= -1 + EPS_BIG)
                                      {
                                          // normals facing away, means that these touch
                                          resultLocation = MeshLocation::OUTSIDE;

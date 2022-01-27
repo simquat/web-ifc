@@ -13,6 +13,8 @@ namespace webifc
     bool intersect_ray_triangle(
         const glm::dvec3& origin, const glm::dvec3& end, const glm::dvec3& A, const glm::dvec3& B, const glm::dvec3& C, glm::dvec3& out, double& t, bool infiniteLength = false
     ) {
+        constexpr double EPS = EPS_SMALL;
+
         glm::dvec3 dir = end - origin;
         glm::dvec3 E1 = B - A;
         glm::dvec3 E2 = C - A;
@@ -20,8 +22,10 @@ namespace webifc
         glm::dvec3 N = glm::cross(E1, E2);
         glm::dvec3 Q = glm::cross(ROV0, dir);
         double d = dot(dir, N);
-        if (d == 0)
+        if (std::fabs(d) < EPS)
         {
+            // we don't properly handle this case:
+            // !!!!!!!!!!!!!! edge AB on plane DEF where B is outside DEF
             return false;
         }
         double det = 1.0 / d;
@@ -31,33 +35,41 @@ namespace webifc
         t = det * glm::dot(ROV0, (N * -1.0));
 
         // TODO: this fuzz is quite serious
-        if (t > 0.9999 && t < 1 + EPS_SMALL && !infiniteLength)
+        if (t > 1 - EPS && t < 1 + EPS && !infiniteLength)
         {
             t = 1;
         }
 
         // TODO: this fuzz is quite serious
-        if (t < 0.0001 && t > 0 - EPS_SMALL && !infiniteLength)
+        if (t < EPS && t > 0 - EPS && !infiniteLength)
+        {
+            t = 0;
+        }
+
+        if (infiniteLength && t < EPS && t > -EPS)
         {
             t = 0;
         }
 
         //log(t, u, v, det);
-        bool result = (t >= 0.0 - EPS_SMALL && u >= 0.0 - EPS_SMALL && v >= 0.0 - EPS_SMALL && (u + v) <= 1.0 + EPS_SMALL && (t <= 1 + EPS_SMALL || infiniteLength));
+        bool result = (t >= 0.0 - EPS && u >= 0.0 - EPS && v >= 0.0 - EPS && (u + v) <= 1.0 + EPS && (t <= 1 + EPS || infiniteLength));
         if (result)
         {
             glm::dvec3 vec = origin + (dir * t);
 #ifdef _DEBUG
-            glm::dvec3 bary(w, u, v);
-            glm::dvec3 vecBary = bary.x * A + bary.y * B + bary.z * C;
-            if (!equals(vec, vecBary, EPS_BIG))
+            if (!infiniteLength)
             {
-                printf("bad bary conversion\n");
-            }
-            glm::dvec3 reconstr = ToBary(A, B, C, vec);
-            if (!equals(bary, reconstr, EPS_BIG))
-            {
-                printf("bad bary conversion\n");
+                glm::dvec3 bary(w, u, v);
+                glm::dvec3 vecBary = bary.x * A + bary.y * B + bary.z * C;
+                if (!equals(vec, vecBary, EPS_SMALL))
+                {
+                    printf("bad bary conversion\n");
+                }
+                glm::dvec3 reconstr = ToBary(A, B, C, vec);
+                if (!equals(bary, reconstr, EPS_SMALL))
+                {
+                    printf("bad bary conversion\n");
+                }
             }
 #endif
             out = vec;
@@ -76,7 +88,7 @@ namespace webifc
         glm::dvec3 end;
     };
 
-    TriTriResult intersect_triangle_triangle(
+    TriTriResult intersect_triangle_triangle_non_coplanar(
         const glm::dvec3& a, const glm::dvec3& b, const glm::dvec3& c,
         const glm::dvec3& d, const glm::dvec3& e, const glm::dvec3& f)
     {
@@ -87,7 +99,6 @@ namespace webifc
         glm::dvec3 pde;
         glm::dvec3 pef;
         glm::dvec3 pfd;
-
 
         // find all edge intersections
         double t; // ignore
@@ -202,6 +213,7 @@ namespace webifc
         }
         else
         {
+            // this is bullshit
             // TODO: this is shady
             if (abc == 1 && def == 0)
             {

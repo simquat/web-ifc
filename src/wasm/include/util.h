@@ -13,14 +13,27 @@
 
 #include "../deps/glm/glm/glm.hpp"
 
+constexpr bool CSG_DEBUG_OUTPUT = false;
+
 #define CONST_PI 3.141592653589793238462643383279502884L
 
 namespace webifc
 {
-	const double EPS_MINISCULE = 1e-12; // what?
-	const double EPS_TINY = 1e-9;
-	const double EPS_SMALL = 1e-6;
-	const double EPS_BIG = 1e-4;
+	constexpr double EPS_NONZERO = 1e-20; // ???
+	constexpr double EPS_MINISCULE = 1e-12; // what?
+	constexpr double EPS_TINY = 1e-9;
+	constexpr double EPS_SMALL = 1e-6;
+	constexpr double EPS_BIG = 1e-4;
+
+
+	double areaOfTriangle(glm::dvec3 a, glm::dvec3 b, glm::dvec3 c)
+	{
+		glm::dvec3 ab = b - a;
+		glm::dvec3 ac = c - a;
+
+		glm::dvec3 norm = glm::cross(ab, ac);
+		return glm::length(norm) / 2;
+	}
 
 	bool MatrixFlipsTriangles(const glm::dmat4& mat)
 	{
@@ -75,6 +88,9 @@ namespace webifc
 		glm::dvec3 v12(v2 - v1);
 		glm::dvec3 v13(v3 - v1);
 
+		v12 = glm::normalize(v12);
+		v13 = glm::normalize(v13);
+
 		glm::dvec3 norm = glm::cross(v12, v13);
 
 		return glm::normalize(norm);
@@ -85,6 +101,9 @@ namespace webifc
 	{
 		glm::dvec3 v12(v2 - v1);
 		glm::dvec3 v13(v3 - v1);
+
+		v12 = glm::normalize(v12);
+		v13 = glm::normalize(v13);
 
 		glm::dvec3 norm = glm::cross(v12, v13);
 
@@ -118,9 +137,10 @@ namespace webifc
 
 		bool intersects(const AABB& other) const
 		{
-			return (max.x >= other.min.x && other.max.x >= min.x &&
-					max.y >= other.min.y && other.max.y >= min.y &&
-					max.z >= other.min.z && other.max.z >= min.z);
+			constexpr double eps = EPS_BIG;
+			return (max.x + eps >= other.min.x && other.max.x + eps >= min.x &&
+					max.y + eps >= other.min.y && other.max.y + eps >= min.y &&
+					max.z + eps >= other.min.z && other.max.z + eps >= min.z);
 		}
 
 		void merge(const AABB& other)
@@ -138,15 +158,15 @@ namespace webifc
 			dirfrac.z = 1.0f / dir.z;
 			// lb is the corner of AABB with minimal coordinates - left bottom, rt is maximal corner
 			// r.org is origin of ray
-			float t1 = (min.x - origin.x) * dirfrac.x;
-			float t2 = (max.x - origin.x) * dirfrac.x;
-			float t3 = (min.y - origin.y) * dirfrac.y;
-			float t4 = (max.y - origin.y) * dirfrac.y;
-			float t5 = (min.z - origin.z) * dirfrac.z;
-			float t6 = (max.z - origin.z) * dirfrac.z;
+			double t1 = (min.x - origin.x) * dirfrac.x;
+			double t2 = (max.x - origin.x) * dirfrac.x;
+			double t3 = (min.y - origin.y) * dirfrac.y;
+			double t4 = (max.y - origin.y) * dirfrac.y;
+			double t5 = (min.z - origin.z) * dirfrac.z;
+			double t6 = (max.z - origin.z) * dirfrac.z;
 
-			float tmin = std::max(std::max(std::min(t1, t2), std::min(t3, t4)), std::min(t5, t6));
-			float tmax = std::min(std::min(std::max(t1, t2), std::max(t3, t4)), std::max(t5, t6));
+			double tmin = std::max(std::max(std::min(t1, t2), std::min(t3, t4)), std::min(t5, t6));
+			double tmax = std::min(std::min(std::max(t1, t2), std::max(t3, t4)), std::max(t5, t6));
 
 			// if tmax < 0, ray (line) is intersecting AABB, but the whole AABB is behind us
 			if (tmax < -EPS_BIG)
@@ -216,6 +236,9 @@ namespace webifc
 		inline void AddFace(glm::dvec3 a, glm::dvec3 b, glm::dvec3 c)
 		{
 			glm::dvec3 normal;
+
+			double area = areaOfTriangle(a, b, c);
+
 			if (!computeSafeNormal(a, b, c, normal))
 			{
 				// bail out, zero area triangle
@@ -223,11 +246,11 @@ namespace webifc
 				return;
 			}
 
-			AddFace(numPoints + 0, numPoints + 1, numPoints + 2);
-
 			AddPoint(a, normal);
 			AddPoint(b, normal);
 			AddPoint(c, normal);
+
+			AddFace(numPoints - 3, numPoints - 2, numPoints - 1);
 		}
 
 		inline void AddFace(uint32_t a, uint32_t b, uint32_t c)
@@ -239,6 +262,15 @@ namespace webifc
 			indexData.push_back(a);
 			indexData.push_back(b);
 			indexData.push_back(c);
+
+			double area = areaOfTriangle(GetPoint(a), GetPoint(b), GetPoint(c));
+
+			glm::dvec3 normal;
+			if (!computeSafeNormal(GetPoint(a), GetPoint(b), GetPoint(c), normal))
+			{
+				// bail out, zero area triangle
+				printf("zero tri");
+			}
 
 			numFaces++;
 		}
@@ -303,14 +335,20 @@ namespace webifc
 		{
 			IfcGeometry newGeom;
 
-			double scale = std::max(extents.x, std::max(extents.y, extents.z));
+			double scale = std::max(extents.x, std::max(extents.y, extents.z)) / 10.0;
 
 			for (size_t i = 0; i < numFaces; i++)
 			{
 				auto face = GetFace(i);
-				auto a = (GetPoint(face.i0) - center) / scale;
-				auto b = (GetPoint(face.i1) - center) / scale;
-				auto c = (GetPoint(face.i2) - center) / scale;
+				auto pa = GetPoint(face.i0);
+				auto pb = GetPoint(face.i1);
+				auto pc = GetPoint(face.i2);
+
+				auto a = (pa - center) / scale;
+				auto b = (pb - center) / scale;
+				auto c = (pc - center) / scale;
+
+				// std::cout << areaOfTriangle(pa, pb, pc) << std::endl;
 
 				newGeom.AddFace(a, b, c);
 			}
@@ -323,14 +361,20 @@ namespace webifc
 		{
 			IfcGeometry newGeom;
 
-			double scale = std::max(extents.x, std::max(extents.y, extents.z));
+			double scale = std::max(extents.x, std::max(extents.y, extents.z)) / 10.0;
 
 			for (size_t i = 0; i < numFaces; i++)
 			{
 				auto face = GetFace(i);
-				auto a = GetPoint(face.i0) * scale + center;
-				auto b = GetPoint(face.i1) * scale + center;
-				auto c = GetPoint(face.i2) * scale + center;
+				auto pa = GetPoint(face.i0);
+				auto pb = GetPoint(face.i1);
+				auto pc = GetPoint(face.i2);
+
+				// std::cout << areaOfTriangle(pa, pb, pc) << std::endl;
+
+				auto a = pa * scale + center;
+				auto b = pb * scale + center;
+				auto c = pc * scale + center;
 
 				newGeom.AddFace(a, b, c);
 			}
@@ -412,6 +456,71 @@ namespace webifc
 		return std::fabs(A.x - B.x) <= eps && std::fabs(A.y - B.y) <= eps && std::fabs(A.z - B.z) <= eps;
 	}
 
+	bool equals(double A, double B, double eps = 0)
+	{
+		return std::fabs(A - B) <= eps;
+	}
+
+	double sign2D(const glm::dvec2& p, const glm::dvec2& a, const glm::dvec2& b)
+	{
+		return (p.x - b.x) * (a.y - b.y) - (a.x - b.x) * (p.y - b.y);
+	}
+
+	// https://stackoverflow.com/questions/1903954/is-there-a-standard-sign-function-signum-sgn-in-c-c
+	double signOneZero(double x)
+	{
+		return (x > 0) - (x < 0);
+	}
+
+	double ComparableAngle(const glm::dvec2& p, const glm::dvec2& a, const glm::dvec2& b)
+	{
+		double upDown = sign2D(p, a, b) >= 0 ? 1 : -1;
+		double dot = (1 + glm::dot(glm::normalize(a - b), glm::normalize(p - b))) / 2.0;
+		return upDown * dot;
+	}
+
+	// https://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
+	double DistancePointToLineSegment2D(const glm::dvec2& v, const glm::dvec2& w, const glm::dvec2& p)
+	{
+		// Return minimum distance between line segment vw and point p
+		const double l2 = glm::length(v - w);  // i.e. |w-v|^2 -  avoid a sqrt
+		if (l2 == 0.0) return glm::distance(p, v);   // v == w case
+		// Consider the line extending the segment, parameterized as v + t (w - v).
+		// We find projection of point p onto the line. 
+		// It falls where t = [(p-v) . (w-v)] / |w-v|^2
+		// We clamp t from [0,1] to handle points outside the segment vw.
+		const double t = std::max(0.0, std::min(1.0, dot(p - v, w - v) / (l2 * l2)));
+		const glm::dvec2 projection = v + t * (w - v);  // Projection falls on the segment
+		return glm::distance(p, projection);
+	}
+
+	bool PointOnLineSegment2D(const glm::dvec2& v, const glm::dvec2& w, const glm::dvec2& p, double EPS)
+	{
+		double dist = DistancePointToLineSegment2D(v, w, p);
+		return dist <= EPS;
+	}
+
+	bool onEdge2D(const glm::dvec2& p, const glm::dvec2& a, const glm::dvec2& b, double EPS)
+	{
+		double dist = std::fabs(sign2D(p, a, b));
+		return dist <= EPS;
+	}
+
+	bool IsVectorCCW(const std::vector<glm::dvec2>& points)
+	{
+		double sum = 0;
+
+		for (int i = 0; i < points.size(); i++)
+		{
+			glm::dvec2 pt1 = points[i];
+			glm::dvec2 pt2 = points[(i + 1) % points.size()];
+
+			sum += (pt2.x - pt1.x) * (pt2.y + pt1.y);
+		}
+
+		return sum < 0;
+	}
+
 	template<uint32_t DIM>
 	struct IfcCurve
 	{
@@ -452,17 +561,7 @@ namespace webifc
 
 		bool IsCCW()
 		{
-			double sum = 0;
-			
-			for (int i = 0; i < points.size(); i++)
-			{
-				glm::dvec2 pt1 = points[(i - 1)%points.size()];
-				glm::dvec2 pt2 = points[i];
-
-				sum += (pt2.x - pt1.x) * (pt2.y + pt1.y);
-			}
-
-			return sum < 0;
+			return IsVectorCCW(points);
 		}
 	};
 
@@ -634,6 +733,14 @@ namespace webifc
 
 		return c;
 	}
+
+	double DistanceToLine(const glm::dvec3& pt, const glm::dvec3& lpos, const glm::dvec3& ldir)
+	{
+		glm::dvec3 x2 = lpos + ldir;
+		double l = glm::length(glm::cross(pt - lpos, pt - x2));
+		double s = glm::length(ldir);
+		return l / s;
+	}
 	
 	glm::dvec3 projectOntoPlane(const glm::dvec3& origin, const glm::dvec3& normal, const glm::dvec3& point, const glm::dvec3& dir)
 	{
@@ -744,7 +851,7 @@ namespace webifc
 		std::vector<IfcComposedMesh> children;
 	};
 
-	std::optional<glm::dvec3> GetOriginRec(IfcComposedMesh& mesh, std::unordered_map<uint32_t, IfcGeometry>& geometryMap, glm::dmat4 mat)
+	std::optional<glm::dmat4> GetOrientationRec(IfcComposedMesh& mesh, std::unordered_map<uint32_t, IfcGeometry>& geometryMap, glm::dmat4 mat)
 	{
 		glm::dmat4 newMat = mat * mesh.transformation;
 
@@ -760,17 +867,17 @@ namespace webifc
 			{
 				for (uint32_t i = 0; i < meshGeom.numFaces; i++)
 				{
-					Face f = meshGeom.GetFace(i);
-					glm::dvec3 a = newMat * glm::dvec4(meshGeom.GetPoint(f.i0), 1);
+					// Face f = meshGeom.GetFace(i);
+					// glm::dvec3 a = newMat * glm::dvec4(meshGeom.GetPoint(f.i0), 1);
 
-					return a;
+					return newMat;
 				}
 			}
 		}
 
 		for (auto& c : mesh.children)
 		{
-			auto v = GetOriginRec(c, geometryMap, newMat);
+			auto v = GetOrientationRec(c, geometryMap, newMat);
 			if (v.has_value())
 			{
 				return v;
@@ -780,9 +887,9 @@ namespace webifc
 		return std::nullopt;
 	}
 
-	glm::dvec3 GetOrigin(IfcComposedMesh& mesh, std::unordered_map<uint32_t, IfcGeometry>& geometryMap)
+	glm::dmat4 GetOrientation(IfcComposedMesh& mesh, std::unordered_map<uint32_t, IfcGeometry>& geometryMap)
 	{
-		auto v = GetOriginRec(mesh, geometryMap, glm::dmat4(1));
+		auto v = GetOrientationRec(mesh, geometryMap, glm::dmat4(1));
 
 		if (v.has_value())
 		{
@@ -790,7 +897,7 @@ namespace webifc
 		}
 		else
 		{
-			return glm::dvec3(0);
+			return glm::dmat4(1);
 		}
 	}
 
@@ -1003,6 +1110,12 @@ namespace webifc
 	{
 		glm::dvec2 min;
 		glm::dvec2 max;
+
+		void Merge(Bounds& other)
+		{
+			min = glm::min(min, other.min);
+			max = glm::max(max, other.max);
+		}
 	};
 
 	glm::dvec2 cmin(glm::dvec2 m, Point p)
@@ -1106,11 +1219,11 @@ namespace webifc
 		);
 	}
 
-	void svgMakeLine(glm::dvec2 a, glm::dvec2 b, std::stringstream& svg)
+	void svgMakeLine(glm::dvec2 a, glm::dvec2 b, std::stringstream& svg, std::string col = "rgb(255,0,0)")
 	{
 		svg << "<line x1=\"" << a.x << "\" y1=\"" << a.y << "\" ";
 		svg << "x2=\"" << b.x << "\" y2=\"" << b.y << "\" ";
-		svg << "style = \"stroke:rgb(255,0,0);stroke-width:1\" />";
+		svg << "style = \"stroke:" + col + ";stroke-width:1\" />";
 	}
 
 	std::string makeSVGTriangles(std::vector<Triangle> triangles, Point p, Point prev, std::vector<Point> pts = {})
@@ -1170,18 +1283,46 @@ namespace webifc
 		);
 	}
 
-	std::string makeSVGLines(std::vector<std::vector<glm::dvec2>> lines)
+	struct SVGLineSet
 	{
-		glm::dvec2 size(2048, 2048);
-		glm::dvec2 offset(5, 5);
+		std::vector<std::vector<glm::dvec2>> lines;
+		std::string color = "rgb(255,0,0)";
 
-		Bounds bounds = getBounds(lines, size, offset);
+		Bounds GetBounds(glm::dvec2 size, glm::dvec2 offset)
+		{
+			return getBounds(lines, size, offset);;
+		}
+	};
 
-		std::stringstream svg;
+	struct SVGDrawing
+	{
+		std::vector<SVGLineSet> sets;
 
-		svg << "<svg width=\"" << size.x + offset.x * 2 << "\" height=\"" << size.y + offset.y * 2 << " \" xmlns=\"http://www.w3.org/2000/svg\">";
+		Bounds GetBounds(glm::dvec2 size, glm::dvec2 offset)
+		{
+			Bounds b; 
+			b.min = glm::dvec2(
+				DBL_MAX,
+				DBL_MAX
+			);
 
-		for (auto& line : lines)
+			b.max = glm::dvec2(
+				-DBL_MAX,
+				-DBL_MAX
+			);
+
+			for (auto& set : sets)
+			{
+				b.Merge(set.GetBounds(size, offset));
+			}
+
+			return b;
+		}
+	};
+
+	void SVGLinesToString(Bounds bounds, glm::dvec2 size, glm::dvec2 offset, SVGLineSet lineSet, std::stringstream& svg)
+	{
+		for (auto& line : lineSet.lines)
 		{
 			if (line.size() > 1)
 			{
@@ -1190,7 +1331,7 @@ namespace webifc
 					glm::dvec2 a = rescale(line[i], bounds, size, offset);
 					glm::dvec2 b = rescale(line[i - 1], bounds, size, offset);
 
-					svgMakeLine(a, b, svg);
+					svgMakeLine(a, b, svg, lineSet.color);
 				}
 			}
 			else
@@ -1198,6 +1339,23 @@ namespace webifc
 				glm::dvec2 a = rescale(line[0], bounds, size, offset);
 				svg << "<circle cx = \"" << a.x << "\" cy = \"" << a.y << "\" r = \"3\" style = \"stroke:rgb(0,0,255);stroke-width:2\" />";
 			}
+		}
+	}
+
+	std::string makeSVGLines(SVGDrawing drawing)
+	{
+		glm::dvec2 size(2048, 2048);
+		glm::dvec2 offset(5, 5);
+
+		Bounds bounds = drawing.GetBounds(size, offset);
+
+		std::stringstream svg;
+
+		svg << "<svg width=\"" << size.x + offset.x * 2 << "\" height=\"" << size.y + offset.y * 2 << " \" xmlns=\"http://www.w3.org/2000/svg\">";
+
+		for (auto& set : drawing.sets)
+		{
+			SVGLinesToString(bounds, size, offset, set, svg);
 		}
 
 		svg << "</svg>";
@@ -1212,7 +1370,11 @@ namespace webifc
 
 	void DumpSVGLines(std::vector<std::vector<glm::dvec2>> lines, std::wstring filename)
 	{
-        writeFile(filename, makeSVGLines(lines));
+		SVGLineSet set;
+		set.lines = lines;
+		SVGDrawing drawing;
+		drawing.sets.push_back(set);
+        writeFile(filename, makeSVGLines(drawing));
 	}
 
 	bool isConvexOrColinear(glm::dvec2 a, glm::dvec2 b, glm::dvec2 c)
@@ -1226,15 +1388,6 @@ namespace webifc
 		glm::dvec4(0, 1, 0, 0),
 		glm::dvec4(0, 0, 0, 1)
 	);
-
-	double areaOfTriangle(glm::dvec3 a, glm::dvec3 b, glm::dvec3 c)
-	{
-		glm::dvec3 ab = b - a;
-		glm::dvec3 ac = c - a;
-
-		glm::dvec3 norm = glm::cross(ab, ac);
-		return glm::length(norm) / 2;
-	}
 
 	double cross2d(const glm::dvec2& point1, const glm::dvec2& point2) {
 		return point1.x * point2.y - point1.y * point2.x;
