@@ -161,12 +161,17 @@ namespace webifc
 			{
 				profile.curve.Invert();
 			}
+
+			profile.curve.DeduplicateLast();
+
 			for (auto& hole : profile.holes)
 			{
 				if (hole.IsCCW())
 				{
 					hole.Invert();
 				}
+
+				hole.DeduplicateLast();
 			}
 
 			return profile;
@@ -1422,9 +1427,14 @@ namespace webifc
 					std::swap(v12, v13);
 				}
 
+
+				CDT::Triangulation<double> cdt(CDT::VertexInsertionOrder::AsProvided);
+				std::vector<CDT::Edge> edges;
+				std::vector<CDT::V2d<double>> verts;
+
+				size_t edgeOffset = 0;
 				for (auto& bound : bounds)
 				{
-					std::vector<Point> points;
 					for (int i = 0; i < bound.curve.points.size(); i++)
 					{
 						glm::dvec3 pt = bound.curve.points[i];
@@ -1438,18 +1448,27 @@ namespace webifc
 							glm::dot(pt2, v13)
 						);
 
-						points.push_back({ proj.x, proj.y });
+						verts.push_back({ proj.x, proj.y });
+
+						edges.push_back(CDT::Edge(edgeOffset + i, edgeOffset + ((i + 1) % bound.curve.points.size())));
 					}
 
-					polygon.push_back(points);
+					edgeOffset += bound.curve.points.size();
 				}
 
+				auto mapping = CDT::RemoveDuplicatesAndRemapEdges(verts, edges).mapping;
 
-				std::vector<uint32_t> indices = mapbox::earcut<uint32_t>(polygon);
+				cdt.insertVertices(verts);
+				cdt.insertEdges(edges);
 
-				for (int i = 0; i < indices.size(); i += 3)
+				cdt.eraseOuterTrianglesAndHoles();
+
+				auto outVerts = cdt.vertices;
+				auto triangles = cdt.triangles;
+
+				for (auto& t : triangles)
 				{
-					geometry.AddFace(offset + indices[i + 0], offset + indices[i + 1], offset + indices[i + 2]);
+					geometry.AddFace(offset + mapping[t.vertices[0]], offset + mapping[t.vertices[1]], offset + mapping[t.vertices[2]]);
 				}
 			}
 			else

@@ -109,7 +109,7 @@ namespace webifc
 
 		double len = glm::length(norm);
 
-		if (len <= eps)
+		if (std::isnan(len) || len <= eps)
 		{
 			return false;
 		}
@@ -551,6 +551,25 @@ namespace webifc
 				{
 					// TODO: we are now discarding these points, but they probably should not even be generated
 				}
+			}
+		}
+
+		// the insert routine above does not deduplicate the looped points
+		void DeduplicateLast()
+		{
+			bool removeLast = false;
+			if constexpr (DIM == 2)
+			{
+				removeLast = equals2d(points.front(), points.back(), EPS_TINY);
+			}
+			else
+			{
+				removeLast = equals(points.front(), points.back(), EPS_TINY);
+			}
+
+			if (removeLast)
+			{
+				points.pop_back();
 			}
 		}
 
@@ -1111,7 +1130,7 @@ namespace webifc
 		glm::dvec2 min;
 		glm::dvec2 max;
 
-		void Merge(Bounds& other)
+		void Merge(const Bounds& other)
 		{
 			min = glm::min(min, other.min);
 			max = glm::max(max, other.max);
