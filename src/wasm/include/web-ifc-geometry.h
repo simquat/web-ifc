@@ -1747,7 +1747,7 @@ namespace webifc
 
 			// build the inner segments
 			uint32_t capSize = profile.curve.points.size();
-			for (int i = 1; i < capSize; i++)
+			for (int i = 0; i < capSize; i++)
 			{
 				//https://github.com/tomvandig/web-ifc/issues/5
 				//if (holesIndicesHash[i])
@@ -1755,11 +1755,11 @@ namespace webifc
 					//continue;
 				}
 
-				uint32_t bl = i - 1;
-				uint32_t br = i - 0;
+				uint32_t bl = i;
+				uint32_t br = (i + 1) % capSize;
 
-				uint32_t tl = capSize + i - 1;
-				uint32_t tr = capSize + i - 0;
+				uint32_t tl = capSize + i;
+				uint32_t tr = capSize + ((i + 1) % capSize);
 
 				// this winding should be correct
 				geom.AddFace(geom.GetPoint(tl),
