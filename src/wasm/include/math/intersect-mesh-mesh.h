@@ -757,6 +757,7 @@ namespace webifc
             }
         }
 
+        int numCrosses = 0;
         // find transfers and process
         for (size_t d = startIndex; d < (startIndex + distances.size()); d++)
         {
@@ -775,6 +776,8 @@ namespace webifc
             bool startSide = ds >= 0;
             bool endSide   = de >= 0;
 
+            bool addedThisLoop = false;
+
             if (startOnLine && endOnLine)
             {
                 ClipLine ci;
@@ -784,6 +787,7 @@ namespace webifc
                 ci.pos = s3D;
                 ci.pos2 = e3D;
                 clipLines.push_back(ci);
+                addedThisLoop = true;
             }
             else if (startOnLine)
             {
@@ -809,6 +813,7 @@ namespace webifc
                     ci.pos = s3D;
                     ci.pos2 = s3D;
                     clipLines.push_back(ci);
+                    addedThisLoop = true;
                 }
             }
             else if (endOnLine)
@@ -837,10 +842,10 @@ namespace webifc
                         ci.originMesh = meshIndex;
                         ci.originPolygon = polygonIndex;
                         ci.type = ClipType::CROSS;
-                        ci.cross = true;
                         ci.pos = pointOnLine;
                         ci.pos2 = pointOnLine;
                         clipLines.push_back(ci);
+                        addedThisLoop = true;
                     }
                 }
             }
@@ -852,15 +857,39 @@ namespace webifc
                 // prevSide == CROSS if we don't have a prev
                 if (prevSide != ClipType::CROSS && prevSide != newSide)
                 {
-                    // mark the previous side as cross
-                    clipLines.back().cross = true;
-                    if (clipLines.back().type == ClipType::ON)
+                    if (addedThisLoop)
                     {
-                        clipLines.back().type == ClipType::CROSS;
+                        // if we've added a point this loop (likely cross?) we dont' want to mark the cross, but the one before cross
+                        clipLines[clipLines.size() - 2].cross = true;
+                        numCrosses++;
+                        if (clipLines[clipLines.size() - 2].type == ClipType::ON)
+                        {
+                            clipLines[clipLines.size() - 2].type == ClipType::CROSS;
+                        }
+                    }
+                    else
+                    {
+                        // mark the previous side as cross
+                        clipLines.back().cross = true;
+                        numCrosses++;
+                        if (clipLines.back().type == ClipType::ON)
+                        {
+                            clipLines.back().type == ClipType::CROSS;
+                        }
                     }
                 }
 
                 prevSide = newSide;
+            }
+        }
+
+        // uneven crosses is impossible, must repair!
+        if (numCrosses % 2 != 0)
+        {
+            clipLines.back().cross = true;
+            if (clipLines.back().type == ClipType::ON)
+            {
+                clipLines.back().type == ClipType::CROSS;
             }
         }
 
@@ -1510,6 +1539,7 @@ namespace webifc
                 if (!IsLoopCCW(loop))
                 {
                     printf("BAD LOOP");
+                    return {};
                 }
 
                 // mark loop as visited
