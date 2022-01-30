@@ -640,8 +640,6 @@ namespace webifc
 		// check for a closed curve
 		if (endRad == CONST_PI * 2 && startRad == 0)
 		{
-			c.points.push_back(c.points[0]);
-
 			if (MatrixFlipsTriangles(placement))
 			{
 				c.Invert();
@@ -684,7 +682,6 @@ namespace webifc
 		c.points.push_back(br);
 		c.points.push_back(tr);
 		c.points.push_back(tl);
-		c.points.push_back(bl);
 
 		if (MatrixFlipsTriangles(placement))
 		{
@@ -743,7 +740,6 @@ namespace webifc
 		}
 
 		c.points.push_back(placement * glm::dvec3(-hw, +hd - flangeThickness, 1));// TL knee
-		c.points.push_back(placement * glm::dvec3(-hw, +hd, 1));// TL
 
 		if (MatrixFlipsTriangles(placement))
 		{
