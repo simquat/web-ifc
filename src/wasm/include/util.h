@@ -557,6 +557,11 @@ namespace webifc
 		// the insert routine above does not deduplicate the looped points
 		void DeduplicateLast()
 		{
+			if (points.empty())
+			{
+				return;
+			}
+
 			bool removeLast = false;
 			if constexpr (DIM == 2)
 			{
