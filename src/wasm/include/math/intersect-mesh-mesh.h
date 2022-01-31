@@ -1264,7 +1264,7 @@ namespace webifc
             return ptInsideB;
         }
 
-        void Retriangulate(IfcGeometry& outputGeom)
+        void Retriangulate(IfcGeometry& outputGeom, bool eraseHoles)
         {
             auto loops = ComputeEdgeLoops();
             if (loops.empty())
@@ -1351,15 +1351,11 @@ namespace webifc
                 }
             }
 
-            TriangulateCDT(parentLoops, outputGeom);
+            TriangulateCDT(parentLoops, outputGeom, eraseHoles);
         }
 
-        void TriangulateCDT(const std::vector<std::vector<std::vector<size_t>>>& parentLoops, IfcGeometry& outputGeom)
+        void TriangulateCDT(const std::vector<std::vector<std::vector<size_t>>>& parentLoops, IfcGeometry& outputGeom, bool eraseHoles = false)
         {
-
-
-            //IfcGeometry outputGeom;
-
             for (auto& parentLoop : parentLoops)
             {
                 std::set<size_t> ids;
@@ -1388,7 +1384,14 @@ namespace webifc
                 cdt.insertVertices(verts);
                 cdt.insertEdges(edges);
 
-                cdt.eraseOuterTrianglesAndHoles();
+                if (eraseHoles)
+                {
+                    cdt.eraseOuterTrianglesAndHoles();
+                }
+                else
+                {
+                    cdt.eraseOuterTriangles();
+                }
 
                 auto outVerts = cdt.vertices;
                 auto triangles = cdt.triangles;
@@ -2301,7 +2304,8 @@ namespace webifc
             {
                 poly1.PrintEdges(L"polies.html");
             }
-            poly1.Retriangulate(outputMesh1);
+            // TODO: true based on SUBTRACT, does not apply to any bool op!
+            poly1.Retriangulate(outputMesh1, true);
         }
 
         for (auto& poly2 : newMesh2.polygons)
@@ -2310,7 +2314,8 @@ namespace webifc
             {
                 poly2.PrintEdges(L"polies.html");
             }
-            poly2.Retriangulate(outputMesh2);
+            // TODO: false based on SUBTRACT, does not apply to any bool op!
+            poly2.Retriangulate(outputMesh2, false);
         }
     }
 
