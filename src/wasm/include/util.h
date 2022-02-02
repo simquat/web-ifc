@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
  
- #pragma once
+#pragma once
 
 #include <sstream>
 #include <fstream>
@@ -26,7 +26,7 @@ namespace webifc
 	constexpr double EPS_BIG = 1e-4;
 
 
-	double areaOfTriangle(glm::dvec3 a, glm::dvec3 b, glm::dvec3 c)
+	static double areaOfTriangle(glm::dvec3 a, glm::dvec3 b, glm::dvec3 c)
 	{
 		glm::dvec3 ab = b - a;
 		glm::dvec3 ac = c - a;
@@ -35,17 +35,17 @@ namespace webifc
 		return glm::length(norm) / 2;
 	}
 
-	bool MatrixFlipsTriangles(const glm::dmat4& mat)
+	static bool MatrixFlipsTriangles(const glm::dmat4& mat)
 	{
 		return glm::determinant(mat) < 0;
 	}
 
-	bool MatrixFlipsTriangles(const glm::dmat3& mat)
+	static bool MatrixFlipsTriangles(const glm::dmat3& mat)
 	{
 		return glm::determinant(mat) < 0;
 	}
 
-    void writeFile(std::wstring filename, std::string data)
+	static void writeFile(std::wstring filename, std::string data)
     {
     #ifdef _MSC_VER
 		std::ofstream out(L"debug_output/" + filename);
@@ -83,7 +83,7 @@ namespace webifc
 
 	constexpr int VERTEX_FORMAT_SIZE_FLOATS = 6;
 
-	glm::dvec3 computeNormal(const glm::dvec3 v1, const glm::dvec3 v2, const glm::dvec3 v3)
+	static glm::dvec3 computeNormal(const glm::dvec3 v1, const glm::dvec3 v2, const glm::dvec3 v3)
 	{
 		glm::dvec3 v12(v2 - v1);
 		glm::dvec3 v13(v3 - v1);
@@ -97,7 +97,7 @@ namespace webifc
 	}
 
 	// just follow the ifc spec, damn
-	bool computeSafeNormal(const glm::dvec3 v1, const glm::dvec3 v2, const glm::dvec3 v3, glm::dvec3& normal, double eps = 0)
+	static bool computeSafeNormal(const glm::dvec3 v1, const glm::dvec3 v2, const glm::dvec3 v3, glm::dvec3& normal, double eps = 0)
 	{
 		glm::dvec3 v12(v2 - v1);
 		glm::dvec3 v13(v3 - v1);
@@ -119,7 +119,7 @@ namespace webifc
 		return true;
 	}
 
-	bool IsInsideCenterExtents(const glm::dvec3& pt, const glm::dvec3& center, const glm::dvec3& extents)
+	static bool IsInsideCenterExtents(const glm::dvec3& pt, const glm::dvec3& center, const glm::dvec3& extents)
 	{
 		glm::dvec3 delta = pt - center;
 		delta = glm::abs(delta);
@@ -433,7 +433,7 @@ namespace webifc
 		}
 	};
 
-	AABB GetAABB(const IfcGeometry& mesh)
+	static AABB GetAABB(const IfcGeometry& mesh)
 	{
 		AABB aabb;
 
@@ -446,33 +446,33 @@ namespace webifc
 		return aabb;
 	}
 
-	bool equals2d(glm::dvec2 A, glm::dvec2 B, double eps = 0)
+	static bool equals2d(glm::dvec2 A, glm::dvec2 B, double eps = 0)
 	{
 		return std::fabs(A.x - B.x) <= eps && std::fabs(A.y - B.y) <= eps;
 	}
 
-	bool equals(glm::dvec3 A, glm::dvec3 B, double eps = 0)
+	static bool equals(glm::dvec3 A, glm::dvec3 B, double eps = 0)
 	{
 		return std::fabs(A.x - B.x) <= eps && std::fabs(A.y - B.y) <= eps && std::fabs(A.z - B.z) <= eps;
 	}
 
-	bool equals(double A, double B, double eps = 0)
+	static bool equals(double A, double B, double eps = 0)
 	{
 		return std::fabs(A - B) <= eps;
 	}
 
-	double sign2D(const glm::dvec2& p, const glm::dvec2& a, const glm::dvec2& b)
+	static double sign2D(const glm::dvec2& p, const glm::dvec2& a, const glm::dvec2& b)
 	{
 		return (p.x - b.x) * (a.y - b.y) - (a.x - b.x) * (p.y - b.y);
 	}
 
 	// https://stackoverflow.com/questions/1903954/is-there-a-standard-sign-function-signum-sgn-in-c-c
-	double signOneZero(double x)
+	static double signOneZero(double x)
 	{
 		return (x > 0) - (x < 0);
 	}
 
-	double ComparableAngle(const glm::dvec2& p, const glm::dvec2& a, const glm::dvec2& b)
+	static double ComparableAngle(const glm::dvec2& p, const glm::dvec2& a, const glm::dvec2& b)
 	{
 		double upDown = sign2D(p, a, b) >= 0 ? 1 : -1;
 		double dot = (1 + glm::dot(glm::normalize(a - b), glm::normalize(p - b))) / 2.0;
@@ -480,7 +480,7 @@ namespace webifc
 	}
 
 	// https://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
-	double DistancePointToLineSegment2D(const glm::dvec2& v, const glm::dvec2& w, const glm::dvec2& p)
+	static double DistancePointToLineSegment2D(const glm::dvec2& v, const glm::dvec2& w, const glm::dvec2& p)
 	{
 		// Return minimum distance between line segment vw and point p
 		const double l2 = glm::length(v - w);  // i.e. |w-v|^2 -  avoid a sqrt
@@ -494,19 +494,19 @@ namespace webifc
 		return glm::distance(p, projection);
 	}
 
-	bool PointOnLineSegment2D(const glm::dvec2& v, const glm::dvec2& w, const glm::dvec2& p, double EPS)
+	static bool PointOnLineSegment2D(const glm::dvec2& v, const glm::dvec2& w, const glm::dvec2& p, double EPS)
 	{
 		double dist = DistancePointToLineSegment2D(v, w, p);
 		return dist <= EPS;
 	}
 
-	bool onEdge2D(const glm::dvec2& p, const glm::dvec2& a, const glm::dvec2& b, double EPS)
+	static bool onEdge2D(const glm::dvec2& p, const glm::dvec2& a, const glm::dvec2& b, double EPS)
 	{
 		double dist = std::fabs(sign2D(p, a, b));
 		return dist <= EPS;
 	}
 
-	bool IsVectorCCW(const std::vector<glm::dvec2>& points)
+	static bool IsVectorCCW(const std::vector<glm::dvec2>& points)
 	{
 		double sum = 0;
 
@@ -614,7 +614,7 @@ namespace webifc
 		std::vector<glm::dvec3> points;
 	};
 
-	IfcCurve<2> GetEllipseCurve(float radiusX, float radiusY, int numSegments, glm::dmat3 placement = glm::dmat3(1), double startRad = 0, double endRad = CONST_PI * 2, bool swap = true)
+	static IfcCurve<2> GetEllipseCurve(float radiusX, float radiusY, int numSegments, glm::dmat3 placement = glm::dmat3(1), double startRad = 0, double endRad = CONST_PI * 2, bool swap = true)
 	{
 		IfcCurve<2> c;
 
@@ -654,24 +654,24 @@ namespace webifc
 		return c;
 	}
 
-	IfcCurve<2> GetCircleCurve(float radius, int numSegments, glm::dmat3 placement = glm::dmat3(1))
+	static IfcCurve<2> GetCircleCurve(float radius, int numSegments, glm::dmat3 placement = glm::dmat3(1))
 	{
 		return GetEllipseCurve(radius, radius, numSegments, placement);
 	}
 
-	bool GetWindingOfTriangle(const glm::dvec3& a, const glm::dvec3& b, const glm::dvec3& c)
+	static bool GetWindingOfTriangle(const glm::dvec3& a, const glm::dvec3& b, const glm::dvec3& c)
 	{
 		auto norm = computeNormal(a, b, c);
 		return glm::dot(norm, glm::dvec3(0, 0, 1)) > 0.0;
 	}
 
-	bool TriangleIsCW(const glm::dvec2& a, const glm::dvec2& b, const glm::dvec2& c)
+	static bool TriangleIsCW(const glm::dvec2& a, const glm::dvec2& b, const glm::dvec2& c)
 	{
 		auto norm = computeNormal(glm::dvec3(a, 0), glm::dvec3(b, 0), glm::dvec3(c, 0));
 		return glm::dot(norm, glm::dvec3(0, 0, 1)) > 0.0;
 	}
 
-	IfcCurve<2> GetRectangleCurve(double xdim, double ydim, glm::dmat3 placement = glm::dmat3(1))
+	static IfcCurve<2> GetRectangleCurve(double xdim, double ydim, glm::dmat3 placement = glm::dmat3(1))
 	{
 		double halfX = xdim / 2;
 		double halfY = ydim / 2;
@@ -696,7 +696,7 @@ namespace webifc
 		return c;
 	}
 
-	IfcCurve<2> GetIShapedCurve(double width, double depth, double webThickness, double flangeThickness, bool hasFillet, double filletRadius, glm::dmat3 placement = glm::dmat3(1))
+	static IfcCurve<2> GetIShapedCurve(double width, double depth, double webThickness, double flangeThickness, bool hasFillet, double filletRadius, glm::dmat3 placement = glm::dmat3(1))
 	{
 		IfcCurve<2> c;
 
@@ -754,7 +754,7 @@ namespace webifc
 		return c;
 	}
 
-	double DistanceToLine(const glm::dvec3& pt, const glm::dvec3& lpos, const glm::dvec3& ldir)
+	static double DistanceToLine(const glm::dvec3& pt, const glm::dvec3& lpos, const glm::dvec3& ldir)
 	{
 		glm::dvec3 x2 = lpos + ldir;
 		double l = glm::length(glm::cross(pt - lpos, pt - x2));
@@ -762,7 +762,7 @@ namespace webifc
 		return l / s;
 	}
 	
-	glm::dvec3 projectOntoPlane(const glm::dvec3& origin, const glm::dvec3& normal, const glm::dvec3& point, const glm::dvec3& dir)
+	static glm::dvec3 projectOntoPlane(const glm::dvec3& origin, const glm::dvec3& normal, const glm::dvec3& point, const glm::dvec3& dir)
 	{
 		// project {et} onto the plane, following the extrusion normal						
 		double ldotn = glm::dot(dir, normal);
@@ -779,7 +779,7 @@ namespace webifc
 		}
 	}
 
-	bool GetBasisFromCoplanarPoints(std::vector<glm::dvec3>& points, glm::dvec3& v1, glm::dvec3& v2, glm::dvec3& v3)
+	static bool GetBasisFromCoplanarPoints(std::vector<glm::dvec3>& points, glm::dvec3& v1, glm::dvec3& v2, glm::dvec3& v3)
 	{
 		v1 = points[0];
 
@@ -827,7 +827,7 @@ namespace webifc
 		bool isConvex;
 	};
 
-	std::array<double, 16> FlattenTransformation(const glm::dmat4& transformation)
+	static std::array<double, 16> FlattenTransformation(const glm::dmat4& transformation)
 	{
 		std::array<double, 16> flatTransformation;
 
@@ -871,7 +871,7 @@ namespace webifc
 		std::vector<IfcComposedMesh> children;
 	};
 
-	std::optional<glm::dmat4> GetOrientationRec(IfcComposedMesh& mesh, std::unordered_map<uint32_t, IfcGeometry>& geometryMap, glm::dmat4 mat)
+	static std::optional<glm::dmat4> GetOrientationRec(IfcComposedMesh& mesh, std::unordered_map<uint32_t, IfcGeometry>& geometryMap, glm::dmat4 mat)
 	{
 		glm::dmat4 newMat = mat * mesh.transformation;
 
@@ -907,7 +907,7 @@ namespace webifc
 		return std::nullopt;
 	}
 
-	glm::dmat4 GetOrientation(IfcComposedMesh& mesh, std::unordered_map<uint32_t, IfcGeometry>& geometryMap)
+	static glm::dmat4 GetOrientation(IfcComposedMesh& mesh, std::unordered_map<uint32_t, IfcGeometry>& geometryMap)
 	{
 		auto v = GetOrientationRec(mesh, geometryMap, glm::dmat4(1));
 
@@ -921,7 +921,7 @@ namespace webifc
 		}
 	}
 
-	void flattenRecursive(IfcComposedMesh& mesh, std::unordered_map<uint32_t, IfcGeometry>& geometryMap, IfcGeometry& geom, glm::dmat4 mat)
+	static void flattenRecursive(IfcComposedMesh& mesh, std::unordered_map<uint32_t, IfcGeometry>& geometryMap, IfcGeometry& geom, glm::dmat4 mat)
 	{
 		glm::dmat4 newMat = mat * mesh.transformation;
 
@@ -960,14 +960,14 @@ namespace webifc
 		}
 	}
 
-	IfcGeometry flatten(IfcComposedMesh& mesh, std::unordered_map<uint32_t, IfcGeometry>& geometryMap, glm::dmat4 mat = glm::dmat4(1))
+	static IfcGeometry flatten(IfcComposedMesh& mesh, std::unordered_map<uint32_t, IfcGeometry>& geometryMap, glm::dmat4 mat = glm::dmat4(1))
 	{
 		IfcGeometry geom;
 		flattenRecursive(mesh, geometryMap, geom, mat);
 		return geom;
 	}
 
-	std::vector<glm::dvec2> rescale(std::vector<glm::dvec2> input, glm::dvec2 size, glm::dvec2 offset)
+	static std::vector<glm::dvec2> rescale(std::vector<glm::dvec2> input, glm::dvec2 size, glm::dvec2 offset)
 	{
 		std::vector<glm::dvec2> retval;
 
@@ -1009,7 +1009,7 @@ namespace webifc
 		return retval;
 	}
 
-	std::string makeSVGLines(std::vector<glm::dvec2> input, std::vector<uint32_t> indices)
+	static std::string makeSVGLines(std::vector<glm::dvec2> input, std::vector<uint32_t> indices)
 	{
 		glm::dvec2 size(512, 512);
 		glm::dvec2 offset(5, 5);
@@ -1064,12 +1064,12 @@ namespace webifc
 		return svg.str();
 	}
 
-	void DumpSVGCurve(std::vector<glm::dvec2> points, std::wstring filename, std::vector<uint32_t> indices = {})
+	static void DumpSVGCurve(std::vector<glm::dvec2> points, std::wstring filename, std::vector<uint32_t> indices = {})
 	{
         writeFile(filename, makeSVGLines(points, indices));
 	}
 
-	void DumpSVGCurve(std::vector<glm::dvec3> points, glm::vec3 dir, std::wstring filename, std::vector<uint32_t> indices = {})
+	static void DumpSVGCurve(std::vector<glm::dvec3> points, glm::vec3 dir, std::wstring filename, std::vector<uint32_t> indices = {})
 	{
 		std::vector<glm::dvec2> points2D;
 		for (auto& pt : points)
@@ -1138,7 +1138,7 @@ namespace webifc
 		}
 	};
 
-	glm::dvec2 cmin(glm::dvec2 m, Point p)
+	static glm::dvec2 cmin(glm::dvec2 m, Point p)
 	{
 		return glm::dvec2(
 			std::min(m.x, p.x),
@@ -1146,7 +1146,7 @@ namespace webifc
 		);
 	}
 
-	glm::dvec2 cmax(glm::dvec2 m, Point p)
+	static glm::dvec2 cmax(glm::dvec2 m, Point p)
 	{
 		return glm::dvec2(
 			std::max(m.x, p.x),
@@ -1154,7 +1154,7 @@ namespace webifc
 		);
 	}
 
-	Bounds getBounds(std::vector<Triangle> input, glm::dvec2 size, glm::dvec2 offset)
+	static Bounds getBounds(std::vector<Triangle> input, glm::dvec2 size, glm::dvec2 offset)
 	{
 		std::vector<glm::dvec2> retval;
 
@@ -1194,7 +1194,7 @@ namespace webifc
 		};
 	}
 
-	Bounds getBounds(std::vector<std::vector<glm::dvec2>> input, glm::dvec2 size, glm::dvec2 offset)
+	static Bounds getBounds(std::vector<std::vector<glm::dvec2>> input, glm::dvec2 size, glm::dvec2 offset)
 	{
 		std::vector<glm::dvec2> retval;
 
@@ -1231,7 +1231,7 @@ namespace webifc
 		};
 	}
 
-	glm::dvec2 rescale(Point p, Bounds b, glm::dvec2 size, glm::dvec2 offset)
+	static glm::dvec2 rescale(Point p, Bounds b, glm::dvec2 size, glm::dvec2 offset)
 	{
 		return glm::dvec2(
 			((p.x - b.min.x) / (b.max.x - b.min.x)) * size.x + offset.x,
@@ -1239,14 +1239,14 @@ namespace webifc
 		);
 	}
 
-	void svgMakeLine(glm::dvec2 a, glm::dvec2 b, std::stringstream& svg, std::string col = "rgb(255,0,0)")
+	static void svgMakeLine(glm::dvec2 a, glm::dvec2 b, std::stringstream& svg, std::string col = "rgb(255,0,0)")
 	{
 		svg << "<line x1=\"" << a.x << "\" y1=\"" << a.y << "\" ";
 		svg << "x2=\"" << b.x << "\" y2=\"" << b.y << "\" ";
 		svg << "style = \"stroke:" + col + ";stroke-width:1\" />";
 	}
 
-	std::string makeSVGTriangles(std::vector<Triangle> triangles, Point p, Point prev, std::vector<Point> pts = {})
+	static std::string makeSVGTriangles(std::vector<Triangle> triangles, Point p, Point prev, std::vector<Point> pts = {})
 	{
 		glm::dvec2 size(512, 512);
 		glm::dvec2 offset(5, 5);
@@ -1295,7 +1295,7 @@ namespace webifc
 		return svg.str();
 	}
 
-	glm::dvec2 rescale(glm::dvec2 p, Bounds b, glm::dvec2 size, glm::dvec2 offset)
+	static glm::dvec2 rescale(glm::dvec2 p, Bounds b, glm::dvec2 size, glm::dvec2 offset)
 	{
 		return glm::dvec2(
 			((p.x - b.min.x) / (b.max.x - b.min.x)) * size.x + offset.x,
@@ -1340,7 +1340,7 @@ namespace webifc
 		}
 	};
 
-	void SVGLinesToString(Bounds bounds, glm::dvec2 size, glm::dvec2 offset, SVGLineSet lineSet, std::stringstream& svg)
+	static void SVGLinesToString(Bounds bounds, glm::dvec2 size, glm::dvec2 offset, SVGLineSet lineSet, std::stringstream& svg)
 	{
 		for (auto& line : lineSet.lines)
 		{
@@ -1362,7 +1362,7 @@ namespace webifc
 		}
 	}
 
-	std::string makeSVGLines(SVGDrawing drawing)
+	static std::string makeSVGLines(SVGDrawing drawing)
 	{
 		glm::dvec2 size(2048, 2048);
 		glm::dvec2 offset(5, 5);
@@ -1383,12 +1383,12 @@ namespace webifc
 		return svg.str();
 	}
 
-	void DumpSVGTriangles(std::vector<Triangle> triangles, Point p, Point prev, std::wstring filename, std::vector<Point> pts = {})
+	static void DumpSVGTriangles(std::vector<Triangle> triangles, Point p, Point prev, std::wstring filename, std::vector<Point> pts = {})
 	{
         writeFile(filename, makeSVGTriangles(triangles, p, prev, pts));
 	}
 
-	void DumpSVGLines(std::vector<std::vector<glm::dvec2>> lines, std::wstring filename)
+	static void DumpSVGLines(std::vector<std::vector<glm::dvec2>> lines, std::wstring filename)
 	{
 		SVGLineSet set;
 		set.lines = lines;
@@ -1397,23 +1397,23 @@ namespace webifc
         writeFile(filename, makeSVGLines(drawing));
 	}
 
-	bool isConvexOrColinear(glm::dvec2 a, glm::dvec2 b, glm::dvec2 c)
+	static bool isConvexOrColinear(glm::dvec2 a, glm::dvec2 b, glm::dvec2 c)
 	{
 		return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x) >= 0;
 	}
 
-	glm::dmat4 NormalizeIFC(
+	constexpr glm::dmat4 NormalizeIFC(
 		glm::dvec4(1, 0, 0, 0),
 		glm::dvec4(0, 0, -1, 0),
 		glm::dvec4(0, 1, 0, 0),
 		glm::dvec4(0, 0, 0, 1)
 	);
 
-	double cross2d(const glm::dvec2& point1, const glm::dvec2& point2) {
+	static double cross2d(const glm::dvec2& point1, const glm::dvec2& point2) {
 		return point1.x * point2.y - point1.y * point2.x;
 	}
 
-	double areaOfTriangle(glm::dvec2 a, glm::dvec2 b, glm::dvec2 c)
+	static double areaOfTriangle(glm::dvec2 a, glm::dvec2 b, glm::dvec2 c)
 	{
 		glm::dvec2 ab = b - a;
 		glm::dvec2 ac = c - a;
@@ -1423,7 +1423,7 @@ namespace webifc
 	}
 
 	// https://en.wikipedia.org/wiki/Barycentric_coordinate_system
-	glm::dvec3 ToBary(const glm::dvec3& a, const glm::dvec3& b, const glm::dvec3& c, const glm::dvec3& pt)
+	static glm::dvec3 ToBary(const glm::dvec3& a, const glm::dvec3& b, const glm::dvec3& c, const glm::dvec3& pt)
 	{
 		glm::dvec3 E1 = b - a;
 		glm::dvec3 E2 = c - a;
@@ -1446,13 +1446,13 @@ namespace webifc
 		return glm::dvec3(w, u, v);
 	}
 
-	glm::dvec2 FromBary(const glm::dvec2& a, const glm::dvec2& b, const glm::dvec2& c, const glm::dvec3& pt)
+	static glm::dvec2 FromBary(const glm::dvec2& a, const glm::dvec2& b, const glm::dvec2& c, const glm::dvec3& pt)
 	{
 		return pt.x * a + pt.y * b + pt.z * c;
 	}
 
 	// assume 0,0 1,0 0,1 triangle
-	glm::dvec3 ToBary2(const glm::dvec2& pt)
+	static glm::dvec3 ToBary2(const glm::dvec2& pt)
 	{
 		double v = pt.x;
 		double w = pt.y;
@@ -1461,12 +1461,12 @@ namespace webifc
 		return glm::dvec3(u, v, w);
 	}
 
-	glm::dvec3 FromBary(const glm::dvec3& a, const glm::dvec3& b, const glm::dvec3& c, const glm::dvec3& pt)
+	static glm::dvec3 FromBary(const glm::dvec3& a, const glm::dvec3& b, const glm::dvec3& c, const glm::dvec3& pt)
 	{
 		return pt.x * a + pt.y * b + pt.z * c;
 	}
 
-	void CheckTriangle(glm::dvec3 a, glm::dvec3 b, glm::dvec3 c)
+	static void CheckTriangle(glm::dvec3 a, glm::dvec3 b, glm::dvec3 c)
 	{
 		if (areaOfTriangle(a, b, c) == 0)
 		{
@@ -1474,7 +1474,7 @@ namespace webifc
 		}
 	}
 
-	void CheckTriangle(Face& f, std::vector<glm::dvec3>& pts)
+	static void CheckTriangle(Face& f, std::vector<glm::dvec3>& pts)
 	{
 		if (areaOfTriangle(pts[f.i0], pts[f.i1], pts[f.i2]) == 0)
 		{
@@ -1482,12 +1482,12 @@ namespace webifc
 		}
 	}
 
-	double RandomDouble(double lo, double hi)
+	static double RandomDouble(double lo, double hi)
 	{
 		return lo + static_cast<double>(rand()) / (static_cast<double> (RAND_MAX / (hi - lo)));
 	}
 
-	std::string ToObj(const IfcGeometry& geom, size_t& offset, glm::dmat4 transform = glm::dmat4(1))
+	static std::string ToObj(const IfcGeometry& geom, size_t& offset, glm::dmat4 transform = glm::dmat4(1))
 	{
 		std::stringstream obj;
 
@@ -1510,7 +1510,7 @@ namespace webifc
 		return obj.str();
 	}
 
-	std::string ToObj(IfcComposedMesh& mesh, std::unordered_map<uint32_t, IfcGeometry>& geometryMap, size_t& offset, glm::dmat4 mat = glm::dmat4(1))
+	static std::string ToObj(IfcComposedMesh& mesh, std::unordered_map<uint32_t, IfcGeometry>& geometryMap, size_t& offset, glm::dmat4 mat = glm::dmat4(1))
 	{
 		std::string complete;
 
@@ -1528,7 +1528,7 @@ namespace webifc
 		return complete;
 	}
 
-	void DumpIfcGeometry(const IfcGeometry& geom, std::wstring filename)
+	static void DumpIfcGeometry(const IfcGeometry& geom, std::wstring filename)
 	{
 		size_t offset = 0;
         writeFile(filename, ToObj(geom, offset));
