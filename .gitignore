@@ -34,7 +34,6 @@
 *.ilk
 *.pdb
 files
-*.ifc
 
 .vs
 Debug

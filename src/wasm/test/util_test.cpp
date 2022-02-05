@@ -6,10 +6,9 @@
 #include "../include/math/triangulate-with-boundaries.h"
 #include "../include/math/intersect-mesh-mesh.h"
 
+#include "bool_test.h"
 
 using namespace webifc;
-
-
 
 void AddRandomTri(webifc::IfcGeometry& geom, double sceneSize, double triSize)
 {
@@ -176,7 +175,8 @@ TEST(TriangleWalkInnerEdge)
 	glm::dvec2 d(0.5, 0);
 	glm::dvec2 e(0.5, 0.5);
 
-	auto tris = triangulate(a, b, c, std::vector<glm::dvec2>{ d, e });
+	webifc::TriangulateWithBoundaries twb;
+	auto tris = twb.triangulate(a, b, c, std::vector<glm::dvec2>{ d, e });
 
 	ASSERT_EQ(tris.size(), 4);
 }
@@ -189,7 +189,8 @@ TEST(TriangleWalkOuterEdge)
 
 	glm::dvec2 d(0.25, 0);
 
-	auto tris = triangulate(a, b, c, std::vector<glm::dvec2>{ d });
+	webifc::TriangulateWithBoundaries twb;
+	auto tris = twb.triangulate(a, b, c, std::vector<glm::dvec2>{ d });
 
 	ASSERT_EQ(tris.size(), 2);
 }
@@ -210,7 +211,8 @@ TEST(TriangleWalkCenter)
 
 	glm::dvec2 d(0.25, 0.25);
 
-	auto tris = triangulate(a, b, c, std::vector<glm::dvec2>{ d });
+	webifc::TriangulateWithBoundaries twb;
+	auto tris = twb.triangulate(a, b, c, std::vector<glm::dvec2>{ d });
 
 	ASSERT_EQ(tris.size(), 3);
 }

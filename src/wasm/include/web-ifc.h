@@ -136,6 +136,25 @@ namespace webifc
 			return ret;
 		}
 
+		void LoadFile(std::wstring filename)
+		{
+			std::ifstream t(filename);
+			std::stringstream buffer;
+			buffer << t.rdbuf();
+			std::string content = buffer.str();
+
+			size_t contentOffset = 0;
+			LoadFile([&](char* dest, size_t destSize)
+							{
+								uint32_t length = std::min(content.size() - contentOffset, destSize);
+								memcpy(dest, &content[contentOffset], length);
+
+								contentOffset += length;
+
+								return length;
+							});
+		}
+
 		void LoadFile(const std::function<uint32_t(char*, size_t)>& requestData)
 		{
 			Tokenizer<TAPE_SIZE> tokenizer(_tape);
