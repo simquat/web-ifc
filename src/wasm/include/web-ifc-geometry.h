@@ -498,6 +498,8 @@ namespace webifc
 						curve.Invert();
 					}
 
+					curve.DeduplicateLast();
+
 					glm::dvec3 extrusionNormal = glm::dvec3(0, 0, 1);
 					glm::dvec3 planeNormal = surface.transformation[2];
 					glm::dvec3 planePosition = surface.transformation[3];

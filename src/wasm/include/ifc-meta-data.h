@@ -19,7 +19,7 @@ namespace webifc
 
     struct IfcMetaData
     {
-		double linearScalingFactor = 1;
+		double linearScalingFactor = 0.001;
 
 		std::vector<IfcLine> lines;
 		std::vector<uint32_t> expressIDToLine;
