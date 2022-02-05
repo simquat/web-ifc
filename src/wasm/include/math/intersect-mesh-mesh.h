@@ -17,7 +17,7 @@
 namespace webifc
 {
 
-    glm::dvec2 projectOnTriangle(const glm::dvec3& pt, const glm::dvec3& a, const glm::dvec3& b, const glm::dvec3& c)
+    static glm::dvec2 projectOnTriangle(const glm::dvec3& pt, const glm::dvec3& a, const glm::dvec3& b, const glm::dvec3& c)
     {
         glm::dvec3 v1 = glm::normalize(b - a);
         glm::dvec3 v2 = glm::normalize(c - a);
@@ -40,7 +40,7 @@ namespace webifc
         };
     }
 
-    glm::dvec3 unProjectFromTriangle(glm::dvec2& pt, const glm::dvec3& a, const glm::dvec3& b, const glm::dvec3& c)
+    static glm::dvec3 unProjectFromTriangle(glm::dvec2& pt, const glm::dvec3& a, const glm::dvec3& b, const glm::dvec3& c)
     {
         glm::dvec3 v1 = glm::normalize(b - a);
         glm::dvec3 v2 = glm::normalize(c - a);
@@ -66,7 +66,7 @@ namespace webifc
 
     typedef std::map<uint32_t, std::vector<MeshIntersection>> MeshIntersections;
 
-    std::vector<Loop> makeLoops(const glm::dvec3& a, const glm::dvec3& b, const glm::dvec3& c, const std::vector<MeshIntersection>& intersections)
+    static std::vector<Loop> makeLoops(const glm::dvec3& a, const glm::dvec3& b, const glm::dvec3& c, const std::vector<MeshIntersection>& intersections)
     {
         std::vector<Loop> loops;
 
@@ -91,7 +91,7 @@ namespace webifc
         return loops;
     }
 
-    std::vector<Loop> makeLoops2(const glm::dvec3& A, const glm::dvec3& B, const glm::dvec3& C, const glm::dvec2& a, const glm::dvec2& b, const glm::dvec2& c, const std::vector<MeshIntersection>& intersections)
+    static std::vector<Loop> makeLoops2(const glm::dvec3& A, const glm::dvec3& B, const glm::dvec3& C, const glm::dvec2& a, const glm::dvec2& b, const glm::dvec2& c, const std::vector<MeshIntersection>& intersections)
     {
         std::vector<Loop> loops;
 
@@ -118,7 +118,7 @@ namespace webifc
         return loops;
     }
 
-    IfcGeometry retriangulateMesh(const IfcGeometry& mesh, MeshIntersections& intersections)
+    static IfcGeometry retriangulateMesh(const IfcGeometry& mesh, MeshIntersections& intersections)
     {
         IfcGeometry outputMesh;
 
@@ -200,7 +200,8 @@ namespace webifc
 
                 // eartcut.hpp seems to have issues with colinear points in holes, so for now use custom slow algo
                 bool swapped = false;
-                std::vector<Triangle> tesselation = triangulate(pa, pb, pc, loops, swapped);
+                TriangulateWithBoundaries twb;
+                std::vector<Triangle> tesselation = twb.triangulate(pa, pb, pc, loops, swapped);
 
                 for (auto& triangle : tesselation)
                 {
@@ -369,7 +370,7 @@ namespace webifc
 
     };
 
-    int MakeBVH(std::vector<AABB>& boxes, std::vector<BVHNode>& nodes, int start, int end, int axis, int depth, int& offset)
+    static int MakeBVH(std::vector<AABB>& boxes, std::vector<BVHNode>& nodes, int start, int end, int axis, int depth, int& offset)
     {
         int nodeID = offset++;
 
@@ -413,7 +414,7 @@ namespace webifc
         return nodeID;
     }
 
-    BVH MakeBVH(const IfcGeometry& mesh)
+    static BVH MakeBVH(const IfcGeometry& mesh)
     {
         BVH bvh;
         bvh.ptr = &mesh;
@@ -447,7 +448,7 @@ namespace webifc
         }
     };
 
-    std::vector<size_t> findContour(const std::pair<size_t, size_t>& initial,
+    static std::vector<size_t> findContour(const std::pair<size_t, size_t>& initial,
                                     const size_t initialIndex,
                                     const std::vector<std::pair<size_t, size_t>>& contourEdges,
                                     const std::unordered_map<size_t, size_t>& edgeMap)
@@ -562,7 +563,7 @@ namespace webifc
         std::vector<ClipLine> lines;
     };
 
-    std::vector<ClipSegment> LineDistancesToClipSegments(size_t meshIndex,
+    static std::vector<ClipSegment> LineDistancesToClipSegments(size_t meshIndex,
                                                          size_t polygonIndex,
                                                          const std::vector<double>& distances,
                                                          const std::vector<size_t>& contour,
@@ -832,7 +833,7 @@ namespace webifc
         return segments;
     }
 
-    std::vector<ClipSegment> LineDistancesToClipSegments2D(const std::vector<glm::dvec2>& points, const std::vector<size_t>& pointIndices, glm::dvec2 linePos2D, glm::dvec2 lineDir2D)
+    static std::vector<ClipSegment> LineDistancesToClipSegments2D(const std::vector<glm::dvec2>& points, const std::vector<size_t>& pointIndices, glm::dvec2 linePos2D, glm::dvec2 lineDir2D)
     {
         glm::dvec3 linePos(linePos2D, 0);
         glm::dvec3 lineDir(lineDir2D, 0);
@@ -861,7 +862,7 @@ namespace webifc
                                            lineDir);
     }
 
-    std::vector<ClipSegment> LineDistancesToClipSegments2D(const std::vector<glm::dvec2>& points, glm::dvec2 linePos2D = glm::dvec2(0, 0), glm::dvec2 lineDir2D = glm::dvec2(1, 0))
+    static std::vector<ClipSegment> LineDistancesToClipSegments2D(const std::vector<glm::dvec2>& points, glm::dvec2 linePos2D = glm::dvec2(0, 0), glm::dvec2 lineDir2D = glm::dvec2(1, 0))
     {
         std::vector<size_t> contour(points.size());
 
@@ -1730,7 +1731,7 @@ namespace webifc
         }
     };
 
-    Plane FaceToPlane(const glm::dvec3& a, const glm::dvec3& b, const glm::dvec3& c)
+    static Plane FaceToPlane(const glm::dvec3& a, const glm::dvec3& b, const glm::dvec3& c)
     {
         Plane p;
         p.norm = computeNormal(a, b, c);
@@ -1743,7 +1744,7 @@ namespace webifc
         std::vector<Polygon3D> polygons;
     };
 
-    BrepMesh MeshToBReps(const IfcGeometry& mesh, size_t meshIndex)
+    static BrepMesh MeshToBReps(const IfcGeometry& mesh, size_t meshIndex)
     {
         BrepMesh brep;
 
@@ -1798,7 +1799,7 @@ namespace webifc
         return brep;
     }
 
-    void CoplanarPolygonIntersect(const Polygon3D& poly1, const Polygon3D& poly2)
+    static void CoplanarPolygonIntersect(const Polygon3D& poly1, const Polygon3D& poly2)
     {
         // TODO: project the poly with least points
         // project 2 onto 1, resolve collisions
@@ -1828,7 +1829,7 @@ namespace webifc
         }
     }
 
-    std::vector<ClipSegment> IntersectClipSegments(const std::vector<ClipSegment>& segA, const std::vector<ClipSegment>& segB)
+    static std::vector<ClipSegment> IntersectClipSegments(const std::vector<ClipSegment>& segA, const std::vector<ClipSegment>& segB)
     {
         std::vector<std::pair<ClipSegment, bool>> combined;
 
@@ -1944,7 +1945,7 @@ namespace webifc
         return output;
     }
 
-    std::vector<ClipSegment> MergeClipSegments(std::vector<ClipSegment>& inputSegments)
+    static std::vector<ClipSegment> MergeClipSegments(std::vector<ClipSegment>& inputSegments)
     {
         std::sort(inputSegments.begin(), inputSegments.end(), [&](const ClipSegment& a, const ClipSegment& b)
                   {
@@ -2063,7 +2064,7 @@ namespace webifc
         return outputSegments;
     }
 
-    std::vector<ClipSegment> ClipToLine(const Polygon3D& source, const Polygon3D& target, const glm::dvec3& linePos, const glm::dvec3& lineDir)
+    static std::vector<ClipSegment> ClipToLine(const Polygon3D& source, const Polygon3D& target, const glm::dvec3& linePos, const glm::dvec3& lineDir)
     {
         std::vector<ClipSegment> contourClipSegments;
 
@@ -2102,7 +2103,7 @@ namespace webifc
         return MergeClipSegments(contourClipSegments);
     }
 
-    void ClipToClip2D(const glm::dvec2& projStart, const glm::dvec2& projDir, const std::vector<ClipSegment>& intersect, std::vector<ClipSegment2D>& segs)
+    static void ClipToClip2D(const glm::dvec2& projStart, const glm::dvec2& projDir, const std::vector<ClipSegment>& intersect, std::vector<ClipSegment2D>& segs)
     {
         glm::dvec2 prevLineBegin;
         for (auto& clip1D : intersect)
@@ -2131,7 +2132,7 @@ namespace webifc
         }
     }
 
-    void NonCoplanarPolygonIntersect(const Polygon3D& poly1, const Polygon3D& poly2, std::vector<ClipSegment2D>& segmentsA, std::vector<ClipSegment2D>& segmentsB)
+    static void NonCoplanarPolygonIntersect(const Polygon3D& poly1, const Polygon3D& poly2, std::vector<ClipSegment2D>& segmentsA, std::vector<ClipSegment2D>& segmentsB)
     {
         // calculate shared line
         // https://stackoverflow.com/questions/6408670/line-of-intersection-between-two-planes
@@ -2169,7 +2170,7 @@ namespace webifc
         ClipToClip2D(projBStart, projBDir, intersect, segmentsB);
     }
 
-    void DumpPolygonWithClipsegments(const Polygon3D& poly, const std::vector<ClipSegment2D>& segments, const std::wstring& filename)
+    static void DumpPolygonWithClipsegments(const Polygon3D& poly, const std::vector<ClipSegment2D>& segments, const std::wstring& filename)
     {
         std::vector<std::vector<glm::dvec2>> vecs;
 
@@ -2190,7 +2191,7 @@ namespace webifc
         DumpSVGLines(vecs, filename);
     }
 
-    BrepMesh ComputeNewBrepMesh(const BrepMesh& mesh, const std::vector<std::vector<ClipSegment2D>>& clipSegments)
+    static BrepMesh ComputeNewBrepMesh(const BrepMesh& mesh, const std::vector<std::vector<ClipSegment2D>>& clipSegments)
     {
         BrepMesh newMesh;
 
@@ -2247,7 +2248,7 @@ namespace webifc
         return newMesh;
     }
 
-    void IntersectBRepMeshes(const BrepMesh& mesh1, const BrepMesh& mesh2, IfcGeometry& outputMesh1, IfcGeometry& outputMesh2)
+    static void IntersectBRepMeshes(const BrepMesh& mesh1, const BrepMesh& mesh2, IfcGeometry& outputMesh1, IfcGeometry& outputMesh2)
     {
         std::vector<std::vector<ClipSegment2D>> segments1(mesh1.polygons.size());
         std::vector<std::vector<ClipSegment2D>> segments2(mesh2.polygons.size());
@@ -2319,7 +2320,7 @@ namespace webifc
         }
     }
 
-    void intersectMeshMesh(const IfcGeometry& mesh1, const IfcGeometry& mesh2, IfcGeometry& result1, IfcGeometry& result2, BVH& bvh1, BVH& bvh2)
+    static void intersectMeshMesh(const IfcGeometry& mesh1, const IfcGeometry& mesh2, IfcGeometry& result1, IfcGeometry& result2, BVH& bvh1, BVH& bvh2)
     {
         auto brep1 = MeshToBReps(mesh1, 0);
         auto brep2 = MeshToBReps(mesh2, 1);

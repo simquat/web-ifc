@@ -15,7 +15,7 @@
 
 namespace webifc
 {
-    void clipMesh(IfcGeometry& source, IfcGeometry& target, BVH& targetBVH, IfcGeometry& result, bool invert, bool flip, bool keepBoundary)
+    static void clipMesh(IfcGeometry& source, IfcGeometry& target, BVH& targetBVH, IfcGeometry& result, bool invert, bool flip, bool keepBoundary)
     {
         glm::dvec3 targetCenter;
         glm::dvec3 targetExtents;
@@ -58,7 +58,7 @@ namespace webifc
         }
     }
 
-    IfcGeometry boolIntersect(IfcGeometry& mesh1, IfcGeometry& mesh2, BVH bvh1, BVH bvh2)
+    static IfcGeometry boolIntersect(IfcGeometry& mesh1, IfcGeometry& mesh2, BVH bvh1, BVH bvh2)
     {
         IfcGeometry resultingMesh;
 
@@ -68,7 +68,7 @@ namespace webifc
         return resultingMesh;
     }
 
-    IfcGeometry boolJoin(IfcGeometry& mesh1, IfcGeometry& mesh2, BVH bvh1, BVH bvh2)
+    static IfcGeometry boolJoin(IfcGeometry& mesh1, IfcGeometry& mesh2, BVH bvh1, BVH bvh2)
     {
         IfcGeometry resultingMesh;
 
@@ -78,7 +78,7 @@ namespace webifc
         return resultingMesh;
     }
 
-    IfcGeometry boolSubtract(IfcGeometry& mesh1, IfcGeometry& mesh2, BVH bvh1, BVH bvh2)
+    static IfcGeometry boolSubtract(IfcGeometry& mesh1, IfcGeometry& mesh2, BVH bvh1, BVH bvh2)
     {
 
         IfcGeometry resultingMesh;
@@ -90,7 +90,7 @@ namespace webifc
     }
 
     // TODO: I don't think XOR works right now...
-    IfcGeometry boolXOR(IfcGeometry& mesh1, IfcGeometry& mesh2, BVH bvh1, BVH bvh2)
+    static IfcGeometry boolXOR(IfcGeometry& mesh1, IfcGeometry& mesh2, BVH bvh1, BVH bvh2)
     {
         IfcGeometry resultingMesh;
 
@@ -100,7 +100,7 @@ namespace webifc
         return resultingMesh;
     }
 
-    csgjscpp::Model IfcGeometryToCSGModel(const IfcGeometry& mesh1)
+    static csgjscpp::Model IfcGeometryToCSGModel(const IfcGeometry& mesh1)
     {
         std::vector<csgjscpp::Polygon> polygons1;
 
@@ -126,7 +126,7 @@ namespace webifc
         return csgjscpp::modelfrompolygons(polygons1);
     }
 
-    IfcGeometry boolSubtract_CSGJSCPP(const IfcGeometry& mesh1, const IfcGeometry& mesh2)
+    static IfcGeometry boolSubtract_CSGJSCPP(const IfcGeometry& mesh1, const IfcGeometry& mesh2)
     {
         auto model1 = IfcGeometryToCSGModel(mesh1);
         auto model2 = IfcGeometryToCSGModel(mesh2);
@@ -155,7 +155,7 @@ namespace webifc
         return result;
     }
 
-    glm::dvec3 GetOffset(glm::dvec3 pt, glm::dvec3 center, glm::dvec3 extents)
+    static glm::dvec3 GetOffset(glm::dvec3 pt, glm::dvec3 center, glm::dvec3 extents)
     {
         auto dpt = pt - center;
 
@@ -166,7 +166,7 @@ namespace webifc
         return dpt * scaleMM;
     }
 
-    CSGBrush* IfcGeometryToCSGBrush(const IfcGeometry& mesh, bool scale = false)
+    static CSGBrush* IfcGeometryToCSGBrush(const IfcGeometry& mesh, bool scale = false)
     {
         CSGBrush* brush = memnew(CSGBrush);
 
@@ -216,7 +216,7 @@ namespace webifc
         return brush;
     }
 
-    IfcGeometry boolSubtract_GODOT(const IfcGeometry& mesh1, const IfcGeometry& mesh2)
+    static IfcGeometry boolSubtract_GODOT(const IfcGeometry& mesh1, const IfcGeometry& mesh2)
     {
 
         auto model1 = IfcGeometryToCSGBrush(mesh1);
@@ -245,4 +245,4 @@ namespace webifc
 
         return result;
     }
-    }
+}

@@ -10,7 +10,7 @@ namespace webifc
 {
 
     // https://www.iquilezles.org/www/articles/intersectors/intersectors.htm
-    bool intersect_ray_triangle(
+    static bool intersect_ray_triangle(
         const glm::dvec3& origin, const glm::dvec3& end, const glm::dvec3& A, const glm::dvec3& B, const glm::dvec3& C, glm::dvec3& out, double& t, bool infiniteLength = false
     ) {
         constexpr double EPS = EPS_SMALL;
@@ -88,7 +88,7 @@ namespace webifc
         glm::dvec3 end;
     };
 
-    TriTriResult intersect_triangle_triangle_non_coplanar(
+    static TriTriResult intersect_triangle_triangle_non_coplanar(
         const glm::dvec3& a, const glm::dvec3& b, const glm::dvec3& c,
         const glm::dvec3& d, const glm::dvec3& e, const glm::dvec3& f)
     {

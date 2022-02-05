@@ -11,12 +11,12 @@
 namespace webifc
 {
 
-	bool allEqual(bool b1, bool b2, bool b3, bool b4)
+	static bool allEqual(bool b1, bool b2, bool b3, bool b4)
 	{
 		return b1 == b2 && b1 == b3 && b1 == b4;
 	}
 
-	bool doLineSegmentsIntersect(const glm::dvec2& p, const glm::dvec2& p2, const glm::dvec2& q, const glm::dvec2& q2, double eps, double& t) {
+	static bool doLineSegmentsIntersect(const glm::dvec2& p, const glm::dvec2& p2, const glm::dvec2& q, const glm::dvec2& q2, double eps, double& t) {
 		glm::dvec2 r = p2 - p;
 		glm::dvec2 s = q2 - q;
 

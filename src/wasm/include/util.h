@@ -1487,11 +1487,11 @@ namespace webifc
 		return lo + static_cast<double>(rand()) / (static_cast<double> (RAND_MAX / (hi - lo)));
 	}
 
-	static std::string ToObj(const IfcGeometry& geom, size_t& offset, glm::dmat4 transform = glm::dmat4(1))
+	static std::string ToObj(const IfcGeometry& geom, size_t& offset, glm::dmat4 transform = glm::dmat4(1), double inputScale = 1.0)
 	{
 		std::stringstream obj;
 
-		double scale = 1.0;
+		double scale = inputScale;
 
 		for (uint32_t i = 0; i < geom.numPoints; i++)
 		{
@@ -1532,6 +1532,15 @@ namespace webifc
 	{
 		size_t offset = 0;
         writeFile(filename, ToObj(geom, offset));
+	}
+
+	static void DumpIfcGeometryToPath(const IfcGeometry& geom, std::wstring path, double inputScale)
+	{
+		size_t offset = 0;
+#ifdef _MSC_VER
+		std::ofstream out(path);
+		out << ToObj(geom, offset, glm::dmat4(1), inputScale);
+#endif
 	}
 
 	//! This is essentially a chunked tightly packed dynamic array
