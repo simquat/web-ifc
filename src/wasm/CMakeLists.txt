@@ -48,7 +48,7 @@ source_group ("sources" FILES ${WebIfcSourceFiles})
 
 add_executable (web-ifc ${WebIfcFiles})
 
-file (GLOB WebIfcTestSourceFiles test/*.cpp)
+file (GLOB WebIfcTestSourceFiles test/*)
 set (WebIfcTestFiles ${WebIfcTestSourceFiles})
 add_executable (web-ifc-test ${WebIfcTestFiles})
 source_group ("Tests" FILES ${WebIfcTestSourceFiles})
