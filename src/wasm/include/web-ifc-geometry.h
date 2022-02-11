@@ -74,7 +74,8 @@ namespace webifc
 		IfcGeometry GetFlattenedGeometry(uint32_t expressID)
 		{
 			auto mesh = GetMesh(expressID);
-            return flatten(mesh, _expressIDToGeometry, NormalizeIFC);
+			glm::dmat4 mat = glm::scale(glm::dvec3(_loader.GetLinearScalingFactor()));
+            return flatten(mesh, _expressIDToGeometry, NormalizeIFC * mat);
 		}
 
 		void AddComposedMeshToFlatMesh(IfcFlatMesh& flatMesh, const IfcComposedMesh& composedMesh, const glm::dmat4& parentMatrix = glm::dmat4(1), const glm::dvec4& color = glm::dvec4(1, 1, 1, 1), bool hasColor = false)

@@ -23,6 +23,18 @@ bool E_EQ(std::string message, T t, R r)
     return true;
 }
 
+bool DE_EQ(std::string message, double t, double r, double EPS)
+{
+    if (std::fabs(t - r) > EPS)
+    {
+        std::cout << message << " Expected: " << t << " got: " << r << std::endl;
+
+        return false;
+    }
+
+    return true;
+}
+
 struct BoolTestOptions
 {
     bool dumpOutputMesh = true;
@@ -38,6 +50,13 @@ struct BoolOutput
     BoolOutput& ExpectedFaces(uint32_t numFaces)
     {
         result = result && E_EQ("Number of faces", numFaces, geometry.numFaces);
+
+        return *this;
+    }
+
+    BoolOutput& ExpectedVolume(double volume)
+    {
+        result = result && DE_EQ("Volume", volume, geometry.Volume(), webifc::EPS_SMALL);
 
         return *this;
     }
@@ -63,7 +82,7 @@ BoolOutput TestFile(BoolTestOptions testOptions, std::wstring filename, uint32_t
 
     if (testOptions.dumpOutputMesh)
     {
-        DumpIfcGeometryToPath(output.geometry, absFilename + L".obj", 1.0 / 1000);
+        DumpIfcGeometryToPath(output.geometry, absFilename + L".obj", 1.0);
     }
 
     return output;
@@ -84,5 +103,5 @@ TEST(BoolTests)
         testOptions.loaderSettings = loaderSettings;
     }
 
-    ASSERT(TestFile(testOptions, L"1_many_coplanar_subtractions.ifc", 1066540).ExpectedFaces(902)());
+    ASSERT(TestFile(testOptions, L"1_many_coplanar_subtractions.ifc", 1066540).ExpectedFaces(902).ExpectedVolume(0.0305123)());
 }

@@ -431,6 +431,34 @@ namespace webifc
 		{
 			return vertexData.empty();
 		}
+		
+		double Volume(const glm::dmat4& trans = glm::dmat4(1))
+		{
+			double totalVolume = 0;
+
+			for (uint32_t i = 0; i < numFaces; i++)
+			{
+				Face& f = GetFace(i);
+
+				glm::dvec3 a = trans * glm::dvec4(GetPoint(f.i0), 1);
+				glm::dvec3 b = trans * glm::dvec4(GetPoint(f.i1), 1);
+				glm::dvec3 c = trans * glm::dvec4(GetPoint(f.i2), 1);
+
+				glm::dvec3 norm;
+
+				if (computeSafeNormal(a, b, c, norm))
+				{
+					double area = areaOfTriangle(a, b, c);
+					double height = glm::dot(norm, a);
+
+					double tetraVolume = area * height / 3;
+
+					totalVolume += tetraVolume;
+				}
+			}
+
+			return totalVolume;
+		}
 	};
 
 	static AABB GetAABB(const IfcGeometry& mesh)
