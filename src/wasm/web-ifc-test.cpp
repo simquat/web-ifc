@@ -261,9 +261,12 @@ int main()
     // std::string content = ReadFile("../../../examples/example.ifc");
     // std::string content = ReadFile("C:/Users/qmoya/Desktop/PROGRAMES/VSCODE/IFC.JS/issues/#278 pending/extrusions.ifc");
     // std::string content = ReadFile("C:/Users/qmoya/Desktop/PROGRAMES/VSCODE/IFC.JS/issues/#sweptdisk/IfcSurfaceCurveSweptAreaSolid.ifc");
-    std::string content = ReadFile("C:/Users/qmoya/Desktop/PROGRAMES/VSCODE/IFC.JS/issues/#bool testing/15.ifc");
-
-	webifc::utility::LoaderSettings set;
+    // std::string content = ReadFile("C:/Users/qmoya/Desktop/PROGRAMES/VSCODE/IFC.JS/issues/#bool testing/15.ifc");
+    // std::string content = ReadFile("C:/Users/qmoya/Desktop/PROGRAMES/VSCODE/IFC.JS/issues/#ifcrevolvedarea/394.ifc");
+    std::string content = ReadFile("C:/Users/qmoya/Desktop/PROGRAMES/VSCODE/IFC.JS/issues/#ifcrevolvedarea/IfcSurfaceCurveSweptAreaSolid.ifc");
+    // std::string content = ReadFile("C:/Users/qmoya/Desktop/PROGRAMES/VSCODE/IFC.JS/issues/#ifcrevolvedarea/v41.ifc");
+	
+    webifc::utility::LoaderSettings set;
     set.COORDINATE_TO_ORIGIN = true;
 
     webifc::utility::LoaderErrorHandler errorHandler;
@@ -299,7 +302,12 @@ int main()
     // auto trans = webifc::geometry::FlattenTransformation(geometryLoader.GetCoordinationMatrix());
     // SpecificLoadTest(loader, geometryLoader, 15);
     // SpecificLoadTest(loader, geometryLoader, 2591); // IfcSurfaceCurveSweptAreaSolid
-    auto meshes = LoadAllTest(loader, geometryLoader);
+    // SpecificLoadTest(loader, geometryLoader, 4822); // 394 upsideown
+    // SpecificLoadTest(loader, geometryLoader, 2736); // 394
+    SpecificLoadTest(loader, geometryLoader, 2837); // IfcSurfaceCurveSweptAreaSolid
+    // SpecificLoadTest(loader, geometryLoader, 112077); // v41
+
+    // auto meshes = LoadAllTest(loader, geometryLoader);
     // auto alignments = GetAlignments(loader, geometryLoader);
 
 

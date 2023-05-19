@@ -13,6 +13,15 @@
 
 namespace webifc::geometry {
 
+	inline double angleConversion(double angle)
+	{
+		if(abs(angle > 2) - EPS_SMALL * CONST_PI)
+		{
+			angle = (angle / 360) * 2 * CONST_PI;
+		}
+		return angle;
+	}
+
 	inline 	glm::dvec3 projectOntoPlane(const glm::dvec3 &origin, const glm::dvec3 &normal, const glm::dvec3 &point, const glm::dvec3 &dir)
 	{
 		// project {et} onto the plane, following the extrusion normal
@@ -49,7 +58,7 @@ namespace webifc::geometry {
 
 		//! This implementation generates much more vertices than needed, and does not have smoothed normals
 	template<size_t N>
-	inline	IfcGeometry Sweep(const bool closed, const IfcProfile<N> &profile, const IfcCurve<N> &directrix, const glm::dvec3 &initialDirectrixNormal = glm::dvec3(0))
+	inline	IfcGeometry Sweep(const bool closed, const IfcProfile<N> &profile, const IfcCurve<N> &directrix, const glm::dvec3 &initialDirectrixNormal = glm::dvec3(0),const bool rotate90 = false)
 	{
 		IfcGeometry geom;
 
@@ -60,7 +69,7 @@ namespace webifc::geometry {
 		{
 			if (i < directrix.size() - 1)
 			{
-				if (glm::distance(directrix[i], directrix[i + 1]) > 10e-5)
+				if (glm::distance(directrix.points[i], directrix.points[i + 1]) > EPS_SMALL)
 				{
 					dpts.push_back(directrix[i]);
 				}
@@ -155,6 +164,7 @@ namespace webifc::geometry {
 				{
 					// construct initial curve
 					glm::dvec3 left;
+					glm::dvec3 right;
 					if (initialDirectrixNormal == glm::dvec3(0))
 					{
 						left = glm::cross(directrixSegmentNormal, glm::dvec3(directrixSegmentNormal.y, directrixSegmentNormal.x, directrixSegmentNormal.z));
@@ -166,10 +176,16 @@ namespace webifc::geometry {
 						{
 							left = glm::cross(directrixSegmentNormal, glm::dvec3(directrixSegmentNormal.z, directrixSegmentNormal.y, directrixSegmentNormal.x));
 						}
+						right = glm::normalize(glm::cross(directrixSegmentNormal, left));
+						left = glm::normalize(glm::cross(directrixSegmentNormal, right));
 					}
 					else
 					{
 						left = glm::cross(directrixSegmentNormal, initialDirectrixNormal);
+						glm::dvec3 side = glm::normalize(initialDirectrixNormal);
+						right = glm::normalize(glm::cross(directrixSegmentNormal, left));
+						left = glm::normalize(glm::cross(directrixSegmentNormal, right));
+						right *= side;
 					}
 
 					if (left == glm::dvec3(0, 0, 0))
@@ -177,15 +193,16 @@ namespace webifc::geometry {
 						printf("0 left vec in sweep!\n");
 					}
 
-					glm::dvec3 right = glm::normalize(glm::cross(directrixSegmentNormal, left));
-					left = glm::normalize(glm::cross(directrixSegmentNormal, right));
-
 					// project profile onto planeNormal, place on planeOrigin
 					// TODO: look at holes
 					auto &ppts = profile.curve;
 					for (auto &pt2D : ppts)
-					{
-						glm::dvec3 pt = -pt2D.x * right + -pt2D.y * left + planeOrigin;
+					{				
+						glm::dvec3 pt = -pt2D.x * left + -pt2D.y * right + planeOrigin;
+						if(rotate90)
+						{
+							pt = -pt2D.x * right - pt2D.y * left + planeOrigin;
+						}
 						glm::dvec3 proj = projectOntoPlane(planeOrigin, planeNormal, pt, directrixSegmentNormal);
 
 						segmentForCurve.push_back(proj);
