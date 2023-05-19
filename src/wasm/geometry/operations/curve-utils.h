@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "../representation/IfcCurve.h"
+#include "../representation/constants.h"
 
 namespace webifc::geometry {
 
@@ -13,8 +13,8 @@ namespace webifc::geometry {
 		return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x) >= 0;
 	}
 
-
-	inline IfcCurve BuildArc3Pt(const glm::dvec2 &p1, const glm::dvec2 &p2, const glm::dvec2 &p3,uint16_t circleSegments)
+ 	template<size_t N>
+	inline IfcCurve<N> BuildArc3Pt(const glm::dvec2 &p1, const glm::dvec2 &p2, const glm::dvec2 &p3,uint16_t circleSegments)
 	{
 		double f1 = (p1.x * p1.x - p2.x * p2.x + p1.y * p1.y - p2.y * p2.y);
 		double f2 = (p1.x * p1.x - p3.x * p3.x + p1.y * p1.y - p3.y * p3.y);
@@ -58,8 +58,8 @@ namespace webifc::geometry {
 			tempPointList.push_back(pointList[pointList.size() - 1]);
 			pointList = tempPointList;
 		}
-		IfcCurve curve;
-		for (uint32_t j = 0; j < pointList.size(); j++) curve.Add(pointList.at(j));
+		IfcCurve<N> curve;
+		for (uint32_t j = 0; j < pointList.size(); j++) curve.push_back(pointList.at(j));
 			return curve;
 	}
 
@@ -235,13 +235,14 @@ namespace webifc::geometry {
 		return c;
 	}
 
-	inline bool IsCurveConvex(IfcCurve &curve)
+	template<size_t N>
+	inline bool IsCurveConvex(IfcCurve<N> &curve)
 	{
-		for (size_t i = 2; i < curve.points.size(); i++)
+		for (size_t i = 2; i < curve.size(); i++)
 		{
-			glm::dvec2 a = curve.points[i - 2];
-			glm::dvec2 b = curve.points[i - 1];
-			glm::dvec2 c = curve.points[i - 0];
+			glm::dvec2 a = curve[i - 2];
+			glm::dvec2 b = curve[i - 1];
+			glm::dvec2 c = curve[i - 0];
 
 			if (!isConvexOrColinear(a, b, c))
 			{
@@ -257,9 +258,10 @@ namespace webifc::geometry {
 		return glm::determinant(mat) < 0;
 	}
 
-	inline IfcCurve GetEllipseCurve(float radiusX, float radiusY, int numSegments, glm::dmat3 placement = glm::dmat3(1), double startRad = 0, double endRad = CONST_PI * 2, bool swap = true)
+	template<size_t N>
+	inline IfcCurve<N> GetEllipseCurve(float radiusX, float radiusY, int numSegments, glm::dmat3 placement = glm::dmat3(1), double startRad = 0, double endRad = CONST_PI * 2, bool swap = true)
 	{
-		IfcCurve c;
+		IfcCurve<N> c;
 
 		for (int i = 0; i < numSegments; i++)
 		{
@@ -280,13 +282,13 @@ namespace webifc::geometry {
 					radiusY * std::cos(angle));
 			}
 			glm::dvec2 pos = placement * glm::dvec3(circleCoordinate, 1);
-			c.points.push_back(glm::dvec3(pos,0));
+			c.push_back(glm::dvec3(pos,0));
 		}
 
 		// check for a closed curve
 		if (endRad == CONST_PI * 2 && startRad == 0)
 		{
-			c.points.push_back(c.points[0]);
+			c.push_back(c[0]);
 
 			if (MatrixFlipsTriangles(placement))
 			{
@@ -297,12 +299,14 @@ namespace webifc::geometry {
 		return c;
 	}
 
-	inline IfcCurve GetCircleCurve(float radius, int numSegments, glm::dmat3 placement = glm::dmat3(1))
+ 	template<size_t N>
+	inline IfcCurve<N> GetCircleCurve(float radius, int numSegments, glm::dmat3 placement = glm::dmat3(1))
 	{
-		return GetEllipseCurve(radius, radius, numSegments, placement);
+		return GetEllipseCurve<N>(radius, radius, numSegments, placement);
 	}
 
-	inline IfcCurve GetRectangleCurve(double xdim, double ydim, glm::dmat3 placement = glm::dmat3(1))
+	template<size_t N>
+	inline IfcCurve<N> GetRectangleCurve(double xdim, double ydim, glm::dmat3 placement = glm::dmat3(1))
 	{
 		double halfX = xdim / 2;
 		double halfY = ydim / 2;
@@ -313,12 +317,12 @@ namespace webifc::geometry {
 		glm::dvec2 tl = placement * glm::dvec3(-halfX, halfY, 1);
 		glm::dvec2 tr = placement * glm::dvec3(halfX, halfY, 1);
 
-		IfcCurve c;
-		c.Add(bl);
-		c.Add(br);
-		c.Add(tr);
-		c.Add(tl);
-		c.Add(bl);
+		IfcCurve<N> c;
+		c.push_back(bl);
+		c.push_back(br);
+		c.push_back(tr);
+		c.push_back(tl);
+		c.push_back(bl);
 
 		if (MatrixFlipsTriangles(placement))
 		{
@@ -328,56 +332,57 @@ namespace webifc::geometry {
 		return c;
 	}
 
-	inline IfcCurve GetIShapedCurve(double width, double depth, double webThickness, double flangeThickness, bool hasFillet, double filletRadius, glm::dmat3 placement = glm::dmat3(1))
+  	template<size_t N>
+	inline IfcCurve<N> GetIShapedCurve(double width, double depth, double webThickness, double flangeThickness, bool hasFillet, double filletRadius, glm::dmat3 placement = glm::dmat3(1))
 	{
-		IfcCurve c;
+		IfcCurve<N> c;
 
 		double hw = width / 2;
 		double hd = depth / 2;
 		double hweb = webThickness / 2;
 
-		c.points.push_back(placement * glm::dvec3(-hw, +hd, 1));				   // TL
-		c.points.push_back(placement * glm::dvec3(+hw, +hd, 1));				   // TR
-		c.points.push_back(placement * glm::dvec3(+hw, +hd - flangeThickness, 1)); // TR knee
+		c.push_back(placement * glm::dvec3(-hw, +hd, 1));				   // TL
+		c.push_back(placement * glm::dvec3(+hw, +hd, 1));				   // TR
+		c.push_back(placement * glm::dvec3(+hw, +hd - flangeThickness, 1)); // TR knee
 
 		if (hasFillet)
 		{
 			// TODO: interpolate
-			c.points.push_back(placement * glm::dvec3(+hweb + filletRadius, +hd - flangeThickness, 1)); // TR elbow start
-			c.points.push_back(placement * glm::dvec3(+hweb, +hd - flangeThickness - filletRadius, 1)); // TR elbow end
+			c.push_back(placement * glm::dvec3(+hweb + filletRadius, +hd - flangeThickness, 1)); // TR elbow start
+			c.push_back(placement * glm::dvec3(+hweb, +hd - flangeThickness - filletRadius, 1)); // TR elbow end
 
-			c.points.push_back(placement * glm::dvec3(+hweb, -hd + flangeThickness + filletRadius, 1)); // BR elbow start
-			c.points.push_back(placement * glm::dvec3(+hweb + filletRadius, -hd + flangeThickness, 1)); // BR elbow end
+			c.push_back(placement * glm::dvec3(+hweb, -hd + flangeThickness + filletRadius, 1)); // BR elbow start
+			c.push_back(placement * glm::dvec3(+hweb + filletRadius, -hd + flangeThickness, 1)); // BR elbow end
 		}
 		else
 		{
-			c.points.push_back(placement * glm::dvec3(+hweb, +hd - flangeThickness, 1)); // TR elbow
-			c.points.push_back(placement * glm::dvec3(+hweb, -hd + flangeThickness, 1)); // BR elbow
+			c.push_back(placement * glm::dvec3(+hweb, +hd - flangeThickness, 1)); // TR elbow
+			c.push_back(placement * glm::dvec3(+hweb, -hd + flangeThickness, 1)); // BR elbow
 		}
 
-		c.points.push_back(placement * glm::dvec3(+hw, -hd + flangeThickness, 1)); // BR knee
-		c.points.push_back(placement * glm::dvec3(+hw, -hd, 1));				   // BR
+		c.push_back(placement * glm::dvec3(+hw, -hd + flangeThickness, 1)); // BR knee
+		c.push_back(placement * glm::dvec3(+hw, -hd, 1));				   // BR
 
-		c.points.push_back(placement * glm::dvec3(-hw, -hd, 1));				   // BL
-		c.points.push_back(placement * glm::dvec3(-hw, -hd + flangeThickness, 1)); // BL knee
+		c.push_back(placement * glm::dvec3(-hw, -hd, 1));				   // BL
+		c.push_back(placement * glm::dvec3(-hw, -hd + flangeThickness, 1)); // BL knee
 
 		if (hasFillet)
 		{
 			// TODO: interpolate
-			c.points.push_back(placement * glm::dvec3(-hweb - filletRadius, -hd + flangeThickness, 1)); // BL elbow start
-			c.points.push_back(placement * glm::dvec3(-hweb, -hd + flangeThickness + filletRadius, 1)); // BL elbow end
+			c.push_back(placement * glm::dvec3(-hweb - filletRadius, -hd + flangeThickness, 1)); // BL elbow start
+			c.push_back(placement * glm::dvec3(-hweb, -hd + flangeThickness + filletRadius, 1)); // BL elbow end
 
-			c.points.push_back(placement * glm::dvec3(-hweb, +hd - flangeThickness - filletRadius, 1)); // TL elbow start
-			c.points.push_back(placement * glm::dvec3(-hweb - filletRadius, +hd - flangeThickness, 1)); // TL elbow end
+			c.push_back(placement * glm::dvec3(-hweb, +hd - flangeThickness - filletRadius, 1)); // TL elbow start
+			c.push_back(placement * glm::dvec3(-hweb - filletRadius, +hd - flangeThickness, 1)); // TL elbow end
 		}
 		else
 		{
-			c.points.push_back(placement * glm::dvec3(-hweb, -hd + flangeThickness, 1)); // BL elbow
-			c.points.push_back(placement * glm::dvec3(-hweb, +hd - flangeThickness, 1)); // TL elbow
+			c.push_back(placement * glm::dvec3(-hweb, -hd + flangeThickness, 1)); // BL elbow
+			c.push_back(placement * glm::dvec3(-hweb, +hd - flangeThickness, 1)); // TL elbow
 		}
 
-		c.points.push_back(placement * glm::dvec3(-hw, +hd - flangeThickness, 1)); // TL knee
-		c.points.push_back(placement * glm::dvec3(-hw, +hd, 1));				   // TL
+		c.push_back(placement * glm::dvec3(-hw, +hd - flangeThickness, 1)); // TL knee
+		c.push_back(placement * glm::dvec3(-hw, +hd, 1));				   // TL
 
 		if (MatrixFlipsTriangles(placement))
 		{
@@ -387,9 +392,10 @@ namespace webifc::geometry {
 		return c;
 	}
 
-	inline IfcCurve GetUShapedCurve(double depth, double flangeWidth, double webThickness, double flangeThickness, double filletRadius, double edgeRadius, double flangeSlope, glm::dmat3 placement = glm::dmat3(1))
+ 	template<size_t N>
+	inline IfcCurve<N> GetUShapedCurve(double depth, double flangeWidth, double webThickness, double flangeThickness, double filletRadius, double edgeRadius, double flangeSlope, glm::dmat3 placement = glm::dmat3(1))
 	{
-		IfcCurve c;
+		IfcCurve<N> c;
 
 		double hd = depth / 2;
 		double hw = flangeWidth / 2;
@@ -400,20 +406,20 @@ namespace webifc::geometry {
 
 		// TODO: implement the radius
 
-		c.points.push_back(placement * glm::dvec3(-hw, +hd, 1));
-		c.points.push_back(placement * glm::dvec3(+hw, +hd, 1));
+		c.push_back(placement * glm::dvec3(-hw, +hd, 1));
+		c.push_back(placement * glm::dvec3(+hw, +hd, 1));
 
-		c.points.push_back(placement * glm::dvec3(+hw, +hd - flangeThickness + slopeOffsetRight, 1));
+		c.push_back(placement * glm::dvec3(+hw, +hd - flangeThickness + slopeOffsetRight, 1));
 
-		c.points.push_back(placement * glm::dvec3(-hw + webThickness, +hd - flangeThickness, 1 - slopeOffsetLeft));
-		c.points.push_back(placement * glm::dvec3(-hw + webThickness, -hd + flangeThickness, 1 + slopeOffsetLeft));
+		c.push_back(placement * glm::dvec3(-hw + webThickness, +hd - flangeThickness, 1 - slopeOffsetLeft));
+		c.push_back(placement * glm::dvec3(-hw + webThickness, -hd + flangeThickness, 1 + slopeOffsetLeft));
 
-		c.points.push_back(placement * glm::dvec3(+hw, -hd + flangeThickness - slopeOffsetRight, 1));
+		c.push_back(placement * glm::dvec3(+hw, -hd + flangeThickness - slopeOffsetRight, 1));
 
-		c.points.push_back(placement * glm::dvec3(+hw, -hd, 1));
-		c.points.push_back(placement * glm::dvec3(-hw, -hd, 1));
+		c.push_back(placement * glm::dvec3(+hw, -hd, 1));
+		c.push_back(placement * glm::dvec3(-hw, -hd, 1));
 
-		c.points.push_back(placement * glm::dvec3(-hw, +hd, 1));
+		c.push_back(placement * glm::dvec3(-hw, +hd, 1));
 
 		if (MatrixFlipsTriangles(placement))
 		{
@@ -423,17 +429,18 @@ namespace webifc::geometry {
 		return c;
 	}
 
-	inline IfcCurve GetLShapedCurve(double width, double depth, double thickness, bool hasFillet, double filletRadius, double edgeRadius, double legSlope, glm::dmat3 placement = glm::dmat3(1))
+ 	template<size_t N>
+	inline IfcCurve<N> GetLShapedCurve(double width, double depth, double thickness, bool hasFillet, double filletRadius, double edgeRadius, double legSlope, glm::dmat3 placement = glm::dmat3(1))
 	{
-		IfcCurve c;
+		IfcCurve<N> c;
 
 		double hw = width / 2;
 		double hd = depth / 2;
 		double hweb = thickness / 2;
 
-		c.points.push_back(placement * glm::dvec3(+hw, +hd, 1));
-		c.points.push_back(placement * glm::dvec3(+hw, -hd, 1));
-		c.points.push_back(placement * glm::dvec3(-hw, -hd, 1));
+		c.push_back(placement * glm::dvec3(+hw, +hd, 1));
+		c.push_back(placement * glm::dvec3(+hw, -hd, 1));
+		c.push_back(placement * glm::dvec3(-hw, -hd, 1));
 
 		if (hasFillet)
 		{
@@ -441,12 +448,12 @@ namespace webifc::geometry {
 		}
 		else
 		{
-			c.points.push_back(placement * glm::dvec3(-hw, -hd + thickness, 1));
-			c.points.push_back(placement * glm::dvec3(+hw - thickness, -hd + thickness, 1));
-			c.points.push_back(placement * glm::dvec3(+hw - thickness, +hd, 1));
+			c.push_back(placement * glm::dvec3(-hw, -hd + thickness, 1));
+			c.push_back(placement * glm::dvec3(+hw - thickness, -hd + thickness, 1));
+			c.push_back(placement * glm::dvec3(+hw - thickness, +hd, 1));
 		}
 
-		c.points.push_back(placement * glm::dvec3(+hw, +hd, 1));
+		c.push_back(placement * glm::dvec3(+hw, +hd, 1));
 
 		if (MatrixFlipsTriangles(placement))
 		{
@@ -456,15 +463,16 @@ namespace webifc::geometry {
 		return c;
 	}
 
-	inline IfcCurve GetTShapedCurve(double width, double depth, double thickness, bool hasFillet, double filletRadius, double edgeRadius, double legSlope, glm::dmat3 placement = glm::dmat3(1))
+	template<size_t N>
+	inline IfcCurve<N> GetTShapedCurve(double width, double depth, double thickness, bool hasFillet, double filletRadius, double edgeRadius, double legSlope, glm::dmat3 placement = glm::dmat3(1))
 	{
-		IfcCurve c;
+		IfcCurve<N> c;
 
 		double hw = width / 2;
 		double hd = depth / 2;
 		double hweb = thickness / 2;
 
-		c.points.push_back(placement * glm::dvec3(hw, hd, 1));
+		c.push_back(placement * glm::dvec3(hw, hd, 1));
 
 		if (hasFillet)
 		{
@@ -472,16 +480,16 @@ namespace webifc::geometry {
 		}
 		else
 		{
-			c.points.push_back(placement * glm::dvec3(hw, hd - thickness, 1));
-			c.points.push_back(placement * glm::dvec3(hweb, hd - thickness, 1));
-			c.points.push_back(placement * glm::dvec3(hweb, -hd, 1));
-			c.points.push_back(placement * glm::dvec3(-hweb, -hd, 1));
-			c.points.push_back(placement * glm::dvec3(-hweb, hd - thickness, 1));
-			c.points.push_back(placement * glm::dvec3(-hw, hd - thickness, 1));
-			c.points.push_back(placement * glm::dvec3(-hw, hd, 1));
+			c.push_back(placement * glm::dvec3(hw, hd - thickness, 1));
+			c.push_back(placement * glm::dvec3(hweb, hd - thickness, 1));
+			c.push_back(placement * glm::dvec3(hweb, -hd, 1));
+			c.push_back(placement * glm::dvec3(-hweb, -hd, 1));
+			c.push_back(placement * glm::dvec3(-hweb, hd - thickness, 1));
+			c.push_back(placement * glm::dvec3(-hw, hd - thickness, 1));
+			c.push_back(placement * glm::dvec3(-hw, hd, 1));
 		}
 
-		c.points.push_back(placement * glm::dvec3(hw, hd, 1));
+		c.push_back(placement * glm::dvec3(hw, hd, 1));
 
 		if (MatrixFlipsTriangles(placement))
 		{
@@ -491,16 +499,17 @@ namespace webifc::geometry {
 		return c;
 	}
 
-	inline IfcCurve GetCShapedCurve(double width, double depth, double girth, double thickness, bool hasFillet, double filletRadius, glm::dmat3 placement = glm::dmat3(1))
+ 	template<size_t N>
+	inline IfcCurve<N> GetCShapedCurve(double width, double depth, double girth, double thickness, bool hasFillet, double filletRadius, glm::dmat3 placement = glm::dmat3(1))
 	{
-		IfcCurve c;
+		IfcCurve<N> c;
 
 		double hw = width / 2;
 		double hd = depth / 2;
 		// double hweb = thickness / 2;
 
-		c.points.push_back(placement * glm::dvec3(-hw, hd, 1));
-		c.points.push_back(placement * glm::dvec3(hw, hd, 1));
+		c.push_back(placement * glm::dvec3(-hw, hd, 1));
+		c.push_back(placement * glm::dvec3(hw, hd, 1));
 
 		if (hasFillet)
 		{
@@ -508,19 +517,19 @@ namespace webifc::geometry {
 		}
 		else
 		{
-			c.points.push_back(placement * glm::dvec3(hw, hd - girth, 1));
-			c.points.push_back(placement * glm::dvec3(hw - thickness, hd - girth, 1));
-			c.points.push_back(placement * glm::dvec3(hw - thickness, hd - thickness, 1));
-			c.points.push_back(placement * glm::dvec3(-hw + thickness, hd - thickness, 1));
-			c.points.push_back(placement * glm::dvec3(-hw + thickness, -hd + thickness, 1));
-			c.points.push_back(placement * glm::dvec3(hw - thickness, -hd + thickness, 1));
-			c.points.push_back(placement * glm::dvec3(hw - thickness, -hd + girth, 1));
-			c.points.push_back(placement * glm::dvec3(hw, -hd + girth, 1));
-			c.points.push_back(placement * glm::dvec3(hw, -hd, 1));
-			c.points.push_back(placement * glm::dvec3(-hw, -hd, 1));
+			c.push_back(placement * glm::dvec3(hw, hd - girth, 1));
+			c.push_back(placement * glm::dvec3(hw - thickness, hd - girth, 1));
+			c.push_back(placement * glm::dvec3(hw - thickness, hd - thickness, 1));
+			c.push_back(placement * glm::dvec3(-hw + thickness, hd - thickness, 1));
+			c.push_back(placement * glm::dvec3(-hw + thickness, -hd + thickness, 1));
+			c.push_back(placement * glm::dvec3(hw - thickness, -hd + thickness, 1));
+			c.push_back(placement * glm::dvec3(hw - thickness, -hd + girth, 1));
+			c.push_back(placement * glm::dvec3(hw, -hd + girth, 1));
+			c.push_back(placement * glm::dvec3(hw, -hd, 1));
+			c.push_back(placement * glm::dvec3(-hw, -hd, 1));
 		}
 
-		c.points.push_back(placement * glm::dvec3(-hw, hd, 1));
+		c.push_back(placement * glm::dvec3(-hw, hd, 1));
 
 		if (MatrixFlipsTriangles(placement))
 		{
@@ -530,23 +539,24 @@ namespace webifc::geometry {
 		return c;
 	}
 
-	inline IfcCurve GetZShapedCurve(double depth, double flangeWidth, double webThickness, double flangeThickness, double filletRadius, double edgeRadius, glm::dmat3 placement = glm::dmat3(1))
+	template<size_t N>
+	inline IfcCurve<N> GetZShapedCurve(double depth, double flangeWidth, double webThickness, double flangeThickness, double filletRadius, double edgeRadius, glm::dmat3 placement = glm::dmat3(1))
 	{
-		IfcCurve c;
+		IfcCurve<N> c;
 		double hw = flangeWidth / 2;
 		double hd = depth / 2;
 		double hweb = webThickness / 2;
 		// double hfla = flangeThickness / 2;
 
-		c.points.push_back(placement * glm::dvec3(-hw, hd, 1));
-		c.points.push_back(placement * glm::dvec3(hweb, hd, 1));
-		c.points.push_back(placement * glm::dvec3(hweb, -hd + flangeThickness, 1));
-		c.points.push_back(placement * glm::dvec3(hw, -hd + flangeThickness, 1));
-		c.points.push_back(placement * glm::dvec3(hw, -hd, 1));
-		c.points.push_back(placement * glm::dvec3(-hweb, -hd, 1));
-		c.points.push_back(placement * glm::dvec3(-hweb, hd - flangeThickness, 1));
-		c.points.push_back(placement * glm::dvec3(-hw, hd - flangeThickness, 1));
-		c.points.push_back(placement * glm::dvec3(-hw, hd, 1));
+		c.push_back(placement * glm::dvec3(-hw, hd, 1));
+		c.push_back(placement * glm::dvec3(hweb, hd, 1));
+		c.push_back(placement * glm::dvec3(hweb, -hd + flangeThickness, 1));
+		c.push_back(placement * glm::dvec3(hw, -hd + flangeThickness, 1));
+		c.push_back(placement * glm::dvec3(hw, -hd, 1));
+		c.push_back(placement * glm::dvec3(-hweb, -hd, 1));
+		c.push_back(placement * glm::dvec3(-hweb, hd - flangeThickness, 1));
+		c.push_back(placement * glm::dvec3(-hw, hd - flangeThickness, 1));
+		c.push_back(placement * glm::dvec3(-hw, hd, 1));
 
 		if (MatrixFlipsTriangles(placement))
 		{
@@ -556,9 +566,10 @@ namespace webifc::geometry {
 		return c;
 	}
 
-	inline IfcCurve BuildArc(const glm::dvec3 &pos, const glm::dvec3 &axis, double angleRad,uint16_t _circleSegments)
+	template<size_t N>
+	inline IfcCurve<N> BuildArc(const glm::dvec3 &pos, const glm::dvec3 &axis, double angleRad,uint16_t _circleSegments)
 	{
-		IfcCurve curve;
+		IfcCurve<N> curve;
 
 			// double radius = glm::length(pos);
 
@@ -569,12 +580,12 @@ namespace webifc::geometry {
 		glm::dvec3 right = -(pos - pproja);
 		glm::dvec3 up = glm::cross(axis, right);
 
-		auto curve2D = GetEllipseCurve(1, 1, _circleSegments, glm::dmat3(1), 0, angleRad, true);
+		auto curve2D = GetEllipseCurve<2>(1, 1, _circleSegments, glm::dmat3(1), 0, angleRad, true);
 
-		for (auto &pt2D : curve2D.points)
+		for (auto &pt2D : curve2D)
 		{
 			glm::dvec3 pt3D = pos + pt2D.x * right + pt2D.y * up;
-			curve.Add(pt3D);
+			curve.push_back(pt3D);
 		}
 
 		return curve;

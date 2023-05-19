@@ -13,15 +13,56 @@
 #include <algorithm>
 #include <unordered_map>
 #include <glm/glm.hpp>
+#include <typeinfo>
+#include <typeindex>
 
-#include "IfcCurve.h"
-
-#define CONST_PI 3.141592653589793238462643383279502884L
 
 namespace webifc::geometry {
 
-	inline constexpr double EPS_SMALL = 1e-6;
-	inline static constexpr double EPS_TINY = 1e-9;
+	template <size_t N> using IfcCurve = std::vector<glm::vec<N,double>>;
+
+	template <typename T1,typename T2>
+	class Select
+	{
+		public:
+			void operator=(T1 t) { option1=t; has1=true; }
+			void operator=(T2 t) { option2=t; has2=true; }
+			operator T1() { return option1; }
+			operator T2() { return option2; }
+			std::type_index GetType() { if (has1) return typeid(has1); else return typeid(has2); }
+		private:
+			T1 option1;
+			T2 option2;
+			bool has1 = false;
+			bool has2 = false;
+	};
+
+	template <size_t N> using IfcTrimmingSelect =  Select<double,glm::vec<N,double>>;
+	
+	template <size_t N>
+	struct IfcProfile
+	{
+			IfcCurve<N> curve;
+			std::vector<IfcCurve<N>> voids;
+			std::vector<IfcProfile<N>> composites;
+	};
+
+	template <size_t N> using IfcLoop = Select<IfcCurve<N>,std::vector<IfcCurve<N>>>;
+
+
+	enum class IfcBoundType
+	{
+		OUTERBOUND,
+		BOUND
+	};
+	
+	template <size_t N>
+	struct IfcBound
+	{
+		IfcBoundType type;
+		bool orientation;
+		IfcLoop<N> looop;
+	};
 
 	const static std::unordered_map<std::string, int> Horizontal_alignment_type{
 		{"LINE", 1},		
@@ -32,35 +73,35 @@ namespace webifc::geometry {
 		{"BLOSSCURVE", 6},				//ToDo
 		{"COSINECURVE", 7},				//ToDo
 		{"SINECURVE", 8},				//ToDo
-		{"VIENNESEBEND", 9}};			//ToDo
+		{"VIENNESEBEND", 9}				//ToDo
+	};
 
-		const static std::unordered_map<std::string, int> Vertical_alignment_type{
-			{"CONSTANTGRADIENT", 1},	
-			{"CIRCULARARC", 2},			
-			{"PARABOLICARC", 3},		
-			{"CLOTHOID", 4}};				//ToDo
+	const static std::unordered_map<std::string, int> Vertical_alignment_type{
+		{"CONSTANTGRADIENT", 1},	
+		{"CIRCULARARC", 2},			
+		{"PARABOLICARC", 3},		
+		{"CLOTHOID", 4} //ToDo
+	};				
 
+
+	template <size_t N> using IfcAlignmentSegment = std::vector<IfcCurve<N>>;
+
+	template <size_t N>
+	struct IfcAlignment
+	{
+		IfcAlignmentSegment<N> Horizontal;
+		IfcAlignmentSegment<N> Vertical;
+	};
+	
+	//old geometry definitions below
+
+	
 		const double EXTRUSION_DISTANCE_HALFSPACE_M = 50;
 
 		struct IfcSegmentIndexSelect
 		{
 			std::string type;
 			std::vector<uint32_t> indexs;
-		};
-
-		struct IfcProfile
-		{
-			std::string type;
-			IfcCurve curve;
-			std::vector<IfcCurve> holes;
-			bool isConvex;
-			bool isComposite = false;
-			std::vector<IfcProfile> profiles;
-		};
-
-		struct IfcAlignmentSegment
-		{
-			std::vector<IfcCurve> curves;
 		};
 
 		struct Cylinder
@@ -90,69 +131,17 @@ namespace webifc::geometry {
 		{
 			bool Active = false;
 			glm::dmat4 Direction;
-			IfcProfile Profile;
+			IfcProfile<2> Profile;
 		};
 
 		struct Extrusion
 		{
 			bool Active = false;
 			glm::dvec3 Direction;
-			IfcProfile Profile;
+			IfcProfile<2> Profile;
 			double Length;
 		};
 
-		struct IfcAlignment
-		{
-			IfcAlignmentSegment Horizontal;
-			IfcAlignmentSegment Vertical;
-
-			void transform(glm::dmat4 coordinationMatrix)
-			{
-				uint32_t ic = 0;
-				for (auto curve : Horizontal.curves)
-				{
-					if (ic > 0)
-					{
-						uint32_t lastId1 = Horizontal.curves[ic - 1].points.size() - 1;
-						uint32_t lastId2 = Horizontal.curves[ic].points.size() - 1;
-						double d1 = glm::distance(Horizontal.curves[ic].points[0], Horizontal.curves[ic - 1].points[lastId1]);
-						double d2 = glm::distance(Horizontal.curves[ic].points[lastId2], Horizontal.curves[ic - 1].points[lastId1]);
-						if(d1 > d2){
-							std::reverse(Horizontal.curves[ic].points.begin(), Horizontal.curves[ic].points.end());
-						}
-					}
-					ic++;
-				}
-
-				ic = 0;
-				for (auto curve : Horizontal.curves)
-				{
-					uint32_t ip = 0;
-					for (auto pt : curve.points)
-					{
-						Horizontal.curves[ic].points[ip] = coordinationMatrix * glm::dvec4(pt.x,pt.y, 0, 1);
-						ip++;
-					}
-					ic++;
-				}
-			}
-	};
-
-		struct IfcTrimmingSelect
-		{
-			bool hasParam = false;
-			bool hasPos = false;
-			double param;
-			glm::dvec2 pos;
-			glm::dvec3 pos3D;
-		};
-
-		struct IfcTrimmingArguments
-		{
-			bool exist = false;
-			IfcTrimmingSelect start;
-			IfcTrimmingSelect end;
-		};
 
 		struct IfcPlacedGeometry
 		{
@@ -243,20 +232,7 @@ namespace webifc::geometry {
 			glm::dvec4(0, 1, 0, 0),
 			glm::dvec4(0, 0, 0, 1));
 
-		enum class IfcBoundType
-		{
-			OUTERBOUND,
-			BOUND
-		};
-
-		// TODO: IfcBound3D can probably be merged with IfcProfile
-		struct IfcBound3D
-		{
-			IfcBoundType type;
-			bool orientation;
-			IfcCurve curve;
-		};
-
+		
 		struct IfcSurface
 		{
 			glm::dmat4 transformation;

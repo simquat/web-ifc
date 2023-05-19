@@ -48,25 +48,26 @@ namespace webifc::geometry {
 
 
 		//! This implementation generates much more vertices than needed, and does not have smoothed normals
-	inline	IfcGeometry Sweep(const bool closed, const IfcProfile &profile, const IfcCurve &directrix, const glm::dvec3 &initialDirectrixNormal = glm::dvec3(0))
+	template<size_t N>
+	inline	IfcGeometry Sweep(const bool closed, const IfcProfile<N> &profile, const IfcCurve<N> &directrix, const glm::dvec3 &initialDirectrixNormal = glm::dvec3(0))
 	{
 		IfcGeometry geom;
 
 		std::vector<glm::vec<3, glm::f64>> dpts;
 
 			// Remove repeated points
-		for (size_t i = 0; i < directrix.points.size(); i++)
+		for (size_t i = 0; i < directrix.size(); i++)
 		{
-			if (i < directrix.points.size() - 1)
+			if (i < directrix.size() - 1)
 			{
-				if (glm::distance(directrix.points[i], directrix.points[i + 1]) > 10e-5)
+				if (glm::distance(directrix[i], directrix[i + 1]) > 10e-5)
 				{
-					dpts.push_back(directrix.points[i]);
+					dpts.push_back(directrix[i]);
 				}
 			}
 			else
 			{
-				dpts.push_back(directrix.points[i]);
+				dpts.push_back(directrix[i]);
 			}
 		}
 
@@ -91,11 +92,11 @@ namespace webifc::geometry {
 		}
 
 			// compute curve for each part of the directrix
-		std::vector<IfcCurve> curves;
+		std::vector<IfcCurve<N>> curves;
 
 		for (size_t i = 0; i < dpts.size(); i++)
 		{
-			IfcCurve segmentForCurve;
+			IfcCurve<N> segmentForCurve;
 
 			glm::dvec3 planeNormal;
 			glm::dvec3 directrixSegmentNormal;
@@ -181,26 +182,26 @@ namespace webifc::geometry {
 
 					// project profile onto planeNormal, place on planeOrigin
 					// TODO: look at holes
-					auto &ppts = profile.curve.points;
+					auto &ppts = profile.curve;
 					for (auto &pt2D : ppts)
 					{
 						glm::dvec3 pt = -pt2D.x * right + -pt2D.y * left + planeOrigin;
 						glm::dvec3 proj = projectOntoPlane(planeOrigin, planeNormal, pt, directrixSegmentNormal);
 
-						segmentForCurve.Add(proj);
+						segmentForCurve.push_back(proj);
 					}
 				}
 				else
 				{
 					// project previous curve onto the normal
-					const IfcCurve &prevCurve = curves.back();
+					const IfcCurve<N> &prevCurve = curves.back();
 
-					auto &ppts = prevCurve.points;
+					auto &ppts = prevCurve;
 					for (auto &pt : ppts)
 					{
 						glm::dvec3 proj = projectOntoPlane(planeOrigin, planeNormal, pt, directrixSegmentNormal);
 
-						segmentForCurve.Add(proj);
+						segmentForCurve.push_back(proj);
 					}
 				}
 
@@ -220,8 +221,8 @@ namespace webifc::geometry {
 			for (size_t i = 1; i < dpts.size(); i++)
 			{
 
-				const auto &c1 = curves[i - 1].points;
-				const auto &c2 = curves[i].points;
+				const auto &c1 = curves[i - 1];
+				const auto &c2 = curves[i];
 
 				uint32_t capSize = c1.size();
 				for (size_t j = 1; j < capSize; j++)
@@ -237,7 +238,7 @@ namespace webifc::geometry {
 				}
 			}
 
-			// DumpSVGCurve(directrix.points, glm::dvec3(), "directrix.html");
+			// DumpSVGCurve(directrix, glm::dvec3(), "directrix.html");
 			// DumpIfcGeometry(geom, "sweep.obj");
 
 			return geom;
@@ -305,17 +306,18 @@ namespace webifc::geometry {
 			return false;
 		}
 
+ 		template<size_t N>
 		inline void TriangulateBounds(IfcGeometry &geometry, std::vector<IfcBound3D> &bounds,utility::LoaderErrorHandler &_errorHandler,uint32_t expressID)
 		{
-			if (bounds.size() == 1 && bounds[0].curve.points.size() == 3)
+			if (bounds.size() == 1 && bounds[0].curve.size() == 3)
 			{
 				auto c = bounds[0].curve;
 
 				// size_t offset = geometry.numPoints;
 
-				geometry.AddFace(c.points[0], c.points[1], c.points[2]);
+				geometry.AddFace(c[0], c[1], c[2]);
 			}
-			else if (bounds.size() > 0 && bounds[0].curve.points.size() >= 3)
+			else if (bounds.size() > 0 && bounds[0].curve.size() >= 3)
 			{
 				// bound greater than 4 vertices or with holes, triangulate
 				// TODO: modify to use glm::dvec2 with custom accessors
@@ -356,7 +358,7 @@ namespace webifc::geometry {
 				}
 
 				glm::dvec3 v1, v2, v3;
-				if (!GetBasisFromCoplanarPoints(bounds[0].curve.points, v1, v2, v3))
+				if (!GetBasisFromCoplanarPoints(bounds[0].curve, v1, v2, v3))
 				{
 					// these points are on a line
 					_errorHandler.ReportError(utility::LoaderErrorType::PARSING, "No basis found for brep!",expressID);
@@ -369,17 +371,17 @@ namespace webifc::geometry {
 				v12 = glm::cross(v13, n);
 
 				// check winding of outer bound
-				IfcCurve test;
-				for (size_t i = 0; i < bounds[0].curve.points.size(); i++)
+				IfcCurve<N> test;
+				for (size_t i = 0; i < bounds[0].curve.size(); i++)
 				{
-					glm::dvec3 pt = bounds[0].curve.points[i];
+					glm::dvec3 pt = bounds[0].curve[i];
 					glm::dvec3 pt2 = pt - v1;
 
 					glm::dvec2 proj(
 						glm::dot(pt2, v12),
 						glm::dot(pt2, v13));
 
-					test.Add(proj);
+					test.push_back(proj);
 				}
 
 				// if the outer bound is clockwise under the current projection (v12,v13,n), we invert the projection
@@ -392,9 +394,9 @@ namespace webifc::geometry {
 				for (auto &bound : bounds)
 				{
 					std::vector<Point> points;
-					for (size_t i = 0; i < bound.curve.points.size(); i++)
+					for (size_t i = 0; i < bound.curve.size(); i++)
 					{
-						glm::dvec3 pt = bound.curve.points[i];
+						glm::dvec3 pt = bound.curve[i];
 						geometry.AddPoint(pt, n);
 
 						// project pt onto plane of curve to obtain 2d coords
@@ -424,7 +426,8 @@ namespace webifc::geometry {
 		}
 
 
-		inline IfcGeometry Extrude(IfcProfile profile, glm::dvec3 dir, double distance,webifc::utility::LoaderErrorHandler _errorHandler, glm::dvec3 cuttingPlaneNormal = glm::dvec3(0), glm::dvec3 cuttingPlanePos = glm::dvec3(0))
+ 		template<size_t N>
+		inline IfcGeometry Extrude(IfcProfile<N> profile, glm::dvec3 dir, double distance,webifc::utility::LoaderErrorHandler _errorHandler, glm::dvec3 cuttingPlaneNormal = glm::dvec3(0), glm::dvec3 cuttingPlanePos = glm::dvec3(0))
 		{
 			IfcGeometry geom;
 			std::vector<bool> holesIndicesHash;
@@ -437,33 +440,33 @@ namespace webifc::geometry {
 
 				glm::dvec3 normal = dir;
 
-				for (size_t i = 0; i < profile.curve.points.size(); i++)
+				for (size_t i = 0; i < profile.curve.size(); i++)
 				{
-					glm::dvec2 pt = profile.curve.points[i];
+					glm::dvec2 pt = profile.curve[i];
 					glm::dvec4 et = glm::dvec4(glm::dvec3(pt, 0) + dir * distance, 1);
 
 					geom.AddPoint(et, normal);
 					polygon[0].push_back({pt.x, pt.y});
 				}
 
-				for (size_t i = 0; i < profile.curve.points.size(); i++)
+				for (size_t i = 0; i < profile.curve.size(); i++)
 				{
 					holesIndicesHash.push_back(false);
 				}
 
 				for (size_t i = 0; i < profile.holes.size(); i++)
 				{
-					IfcCurve hole = profile.holes[i];
-					int pointCount = hole.points.size();
+					IfcCurve<N> hole = profile.holes[i];
+					int pointCount = hole.size();
 
 					for (int j = 0; j < pointCount; j++)
 					{
 						holesIndicesHash.push_back(j == 0);
 
-						glm::dvec2 pt = hole.points[j];
+						glm::dvec2 pt = hole[j];
 						glm::dvec4 et = glm::dvec4(glm::dvec3(pt, 0) + dir * distance, 1);
 
-						profile.curve.Add(pt);
+						profile.curve.push_back(pt);
 						geom.AddPoint(et, normal);
 						polygon[i + 1].push_back({pt.x, pt.y}); // Index 0 is main profile; see earcut reference
 					}
@@ -498,9 +501,9 @@ namespace webifc::geometry {
 
 				normal = -dir;
 
-				for (size_t i = 0; i < profile.curve.points.size(); i++)
+				for (size_t i = 0; i < profile.curve.size(); i++)
 				{
-					glm::dvec2 pt = profile.curve.points[i];
+					glm::dvec2 pt = profile.curve[i];
 					glm::dvec4 et = glm::dvec4(glm::dvec3(pt, 0), 1);
 
 					if (cuttingPlaneNormal != glm::dvec3(0))
@@ -539,7 +542,7 @@ namespace webifc::geometry {
 				}
 			}
 
-			uint32_t capSize = profile.curve.points.size();
+			uint32_t capSize = profile.curve.size();
 			for (size_t i = 1; i < capSize; i++)
 			{
 				// https://github.com/tomvandig/web-ifc/issues/5
