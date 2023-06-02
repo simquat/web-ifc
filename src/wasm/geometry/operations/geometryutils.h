@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "../representation/constants.h"
 #include "../representation/geometry.h"
 #include "../representation/IfcGeometry.h"
 #include "../../utility/LoaderError.h"
@@ -15,7 +16,7 @@ namespace webifc::geometry {
 
 	inline double angleConversion(double angle)
 	{
-		if(abs(angle > 2) - EPS_SMALL * CONST_PI)
+		if(abs(angle) > 2 - EPS_SMALL * CONST_PI)
 		{
 			angle = (angle / 360) * 2 * CONST_PI;
 		}
@@ -324,17 +325,13 @@ namespace webifc::geometry {
 		}
 
  		template<size_t N>
-		inline void TriangulateBounds(IfcGeometry &geometry, std::vector<IfcBound3D> &bounds,utility::LoaderErrorHandler &_errorHandler,uint32_t expressID)
+		inline void TriangulateBounds(IfcGeometry &geometry, std::vector<IfcBound<3>> &bounds,utility::LoaderErrorHandler &_errorHandler,uint32_t expressID)
 		{
-			if (bounds.size() == 1 && bounds[0].curve.size() == 3)
+			if (bounds.size() == 1 && bounds[0].loop[0].size() == 3)
 			{
-				auto c = bounds[0].curve;
-
-				// size_t offset = geometry.numPoints;
-
-				geometry.AddFace(c[0], c[1], c[2]);
+				for ( auto c : bounds[0].loop) geometry.AddFace(c[0], c[1], c[2]);
 			}
-			else if (bounds.size() > 0 && bounds[0].curve.size() >= 3)
+			else if (bounds.size() > 0 && bounds[0].loop[0].size() >= 3)
 			{
 				// bound greater than 4 vertices or with holes, triangulate
 				// TODO: modify to use glm::dvec2 with custom accessors
@@ -375,7 +372,7 @@ namespace webifc::geometry {
 				}
 
 				glm::dvec3 v1, v2, v3;
-				if (!GetBasisFromCoplanarPoints(bounds[0].curve, v1, v2, v3))
+				if (!GetBasisFromCoplanarPoints(bounds[0].loop[0], v1, v2, v3))
 				{
 					// these points are on a line
 					_errorHandler.ReportError(utility::LoaderErrorType::PARSING, "No basis found for brep!",expressID);
@@ -389,16 +386,18 @@ namespace webifc::geometry {
 
 				// check winding of outer bound
 				IfcCurve<N> test;
-				for (size_t i = 0; i < bounds[0].curve.size(); i++)
-				{
-					glm::dvec3 pt = bounds[0].curve[i];
-					glm::dvec3 pt2 = pt - v1;
+				for ( auto c : bounds[0].loop) {
+					for (size_t i = 0; i < c.size(); i++)
+					{
+						glm::dvec3 pt = c[i];
+						glm::dvec3 pt2 = pt - v1;
 
-					glm::dvec2 proj(
-						glm::dot(pt2, v12),
-						glm::dot(pt2, v13));
+						glm::dvec2 proj(
+							glm::dot(pt2, v12),
+							glm::dot(pt2, v13));
 
-					test.push_back(proj);
+						test.push_back(proj);
+					}
 				}
 
 				// if the outer bound is clockwise under the current projection (v12,v13,n), we invert the projection
@@ -410,23 +409,25 @@ namespace webifc::geometry {
 
 				for (auto &bound : bounds)
 				{
-					std::vector<Point> points;
-					for (size_t i = 0; i < bound.curve.size(); i++)
-					{
-						glm::dvec3 pt = bound.curve[i];
-						geometry.AddPoint(pt, n);
+					for ( auto c : bound.loop) {
+						std::vector<Point> points;
+						for (size_t i = 0; i < c.size(); i++)
+						{
+							glm::dvec3 pt = c[i];
+							geometry.AddPoint(pt, n);
 
-						// project pt onto plane of curve to obtain 2d coords
-						glm::dvec3 pt2 = pt - v1;
+							// project pt onto plane of curve to obtain 2d coords
+							glm::dvec3 pt2 = pt - v1;
 
-						glm::dvec2 proj(
-							glm::dot(pt2, v12),
-							glm::dot(pt2, v13));
+							glm::dvec2 proj(
+								glm::dot(pt2, v12),
+								glm::dot(pt2, v13));
 
-						points.push_back({proj.x, proj.y});
+							points.push_back({proj.x, proj.y});
+						}
+
+						polygon.push_back(points);
 					}
-
-					polygon.push_back(points);
 				}
 
 				std::vector<uint32_t> indices = mapbox::earcut<uint32_t>(polygon);

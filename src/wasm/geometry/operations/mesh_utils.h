@@ -18,7 +18,7 @@ namespace webifc::geometry
 {
 
 	// TODO: review and simplify
-	inline void TriangulateRevolution(IfcGeometry &geometry, std::vector<IfcBound3D> &bounds, IfcSurface &surface)
+	inline void TriangulateRevolution(IfcGeometry &geometry, std::vector<IfcBound<3>> &bounds, IfcSurface &surface)
 	{
 			// First we get the revolution data
 
@@ -46,38 +46,22 @@ namespace webifc::geometry
 
 		for (size_t i = 0; i < bounds.size(); i++)
 		{
-			double xx = 0;
-			double yy = 0;
-			double zz = 0;
-			double cc = 0;
-			int lastTeam = bounds[i].curve.indices[0];
-			for (size_t j = 0; j < bounds[i].curve.points.size(); j++)
+			
+			for (size_t j = 0; j < bounds[i].loop.size(); j++)
 			{
-					// If it is the first point of the group we close the previous group ...
-					//  ... and create a new one. Else, the point is of the current group
-				if (lastTeam != bounds[i].curve.indices[j] || j == (bounds[i].curve.points.size() - 1))
-				{
-					if (cc > 0)
-					{
-						xx /= cc;
-						yy /= cc;
-						zz /= cc;
-						bounding.push_back(glm::dvec3(xx, yy, zz));
-					}
-					xx = bounds[i].curve.points[j].x;
-					yy = bounds[i].curve.points[j].y;
-					zz = bounds[i].curve.points[j].z;
-					cc = 1;
+				double xx = 0;
+				double yy = 0;
+				double zz = 0;
+				for (size_t k = 0; k < bounds[i].loop[j].size(); j++) {
+						xx += bounds[i].loop[j][k].x;
+						yy += bounds[i].loop[j][k].y;
+						zz += bounds[i].loop[j][k].z;
+				}
 
-					lastTeam = bounds[i].curve.indices[j];
-				}
-				else
-				{
-					xx += bounds[i].curve.points[j].x;
-					yy += bounds[i].curve.points[j].y;
-					zz += bounds[i].curve.points[j].z;
-					cc++;
-				}
+				xx /= bounds[i].loop[j].size();
+				yy /= bounds[i].loop[j].size();
+				zz /= bounds[i].loop[j].size();
+				bounding.push_back(glm::dvec3(xx, yy, zz));
 			}
 		}
 
@@ -154,29 +138,34 @@ namespace webifc::geometry
 		double radSpan = endRad - startRad;
 		double radStep = radSpan / (numRots - 1);
 
-		for (size_t i = 0; i < surface.RevolutionSurface.Profile.curve.points.size(); i++)
+		if (surface.ExtrusionSurface.Profile.isType(typeid(IfcProfile<3>)))
 		{
-			double xx = surface.RevolutionSurface.Profile.curve.points[i].x - cent.x;
-			double yy = surface.RevolutionSurface.Profile.curve.points[i].y - cent.y;
-			double zz = surface.RevolutionSurface.Profile.curve.points[i].z - cent.z;
+			IfcProfile<3> profile =  surface.RevolutionSurface.Profile;
 
-			double dx = vecX.x * xx + vecX.y * yy + vecX.z * zz;
-			double dy = vecY.x * xx + vecY.y * yy + vecY.z * zz;
-			double dz = vecZ.x * xx + vecZ.y * yy + vecZ.z * zz;
-			double dd = sqrt(dx * dx + dy * dy);
-			for (int r = 0; r < numRots; r++)
+			for (size_t i = 0; i < profile.curve.size(); i++)
 			{
-				double angle = startRad + r * radStep;
-				double dtempX = sin(angle) * dd;
-				double dtempY = cos(angle) * dd;
-				double newPx = dtempX * vecX.x + dtempY * vecY.x + dz * vecZ.x + cent.x;
-				double newPy = dtempX * vecX.y + dtempY * vecY.y + dz * vecZ.y + cent.y;
-				double newPz = dtempX * vecX.z + dtempY * vecY.z + dz * vecZ.z + cent.z;
-				glm::dvec3 newPt = glm::dvec3(
-					newPx,
-					newPy,
-					newPz);
-				newPoints[r].push_back(newPt);
+				double xx = profile.curve[i].x - cent.x;
+				double yy = profile.curve[i].y - cent.y;
+				double zz = profile.curve[i].z - cent.z;
+
+				double dx = vecX.x * xx + vecX.y * yy + vecX.z * zz;
+				double dy = vecY.x * xx + vecY.y * yy + vecY.z * zz;
+				double dz = vecZ.x * xx + vecZ.y * yy + vecZ.z * zz;
+				double dd = sqrt(dx * dx + dy * dy);
+				for (int r = 0; r < numRots; r++)
+				{
+					double angle = startRad + r * radStep;
+					double dtempX = sin(angle) * dd;
+					double dtempY = cos(angle) * dd;
+					double newPx = dtempX * vecX.x + dtempY * vecY.x + dz * vecZ.x + cent.x;
+					double newPy = dtempX * vecX.y + dtempY * vecY.y + dz * vecZ.y + cent.y;
+					double newPz = dtempX * vecX.z + dtempY * vecY.z + dz * vecZ.z + cent.z;
+					glm::dvec3 newPt = glm::dvec3(
+						newPx,
+						newPy,
+						newPz);
+					newPoints[r].push_back(newPt);
+				}
 			}
 		}
 		for (int r = 0; r < numRots - 1; r++)
@@ -191,7 +180,7 @@ namespace webifc::geometry
 	}
 
 		// TODO: review and simplify
-	inline void TriangulateCylindricalSurface(IfcGeometry &geometry, std::vector<IfcBound3D> &bounds, IfcSurface &surface)
+	inline void TriangulateCylindricalSurface(IfcGeometry &geometry, std::vector<IfcBound<3>> &bounds, IfcSurface &surface)
 	{
 			// First we get the cylinder data
 
@@ -211,19 +200,21 @@ namespace webifc::geometry
 			// Only retain the max and min relative Z
 		for (size_t i = 0; i < bounds.size(); i++)
 		{
-			for (size_t j = 0; j < bounds[i].curve.points.size(); j++)
-			{
-				glm::dvec3 vv = bounds[i].curve.points[j] - cent;
-					//					double dx = glm::dot(vecX, vv);
-					//					double dy = glm::dot(vecY, vv);
-				double dz = glm::dot(vecZ, vv);
-				if (maxZ < dz)
+			for ( auto c : bounds[i].loop) {
+				for (size_t j = 0; j < c.size(); j++)
 				{
-					maxZ = dz;
-				}
-				if (minZ > dz)
-				{
-					minZ = dz;
+					glm::dvec3 vv = c[j] - cent;
+						//					double dx = glm::dot(vecX, vv);
+						//					double dy = glm::dot(vecY, vv);
+					double dz = glm::dot(vecZ, vv);
+					if (maxZ < dz)
+					{
+						maxZ = dz;
+					}
+					if (minZ > dz)
+					{
+						minZ = dz;
+					}
 				}
 			}
 		}
@@ -238,38 +229,27 @@ namespace webifc::geometry
 		std::vector<double> angleVec;
 		std::vector<double> angleDsp;
 
-			// Find the max. curve index in the boundary
-
 		int maxTeam = 0;
 		for (size_t i = 0; i < bounds.size(); i++)
 		{
-			for (size_t j = 0; j < bounds[i].curve.indices.size(); j++)
-			{
-				if (bounds[i].curve.indices[j] > maxTeam)
-				{
-					maxTeam = bounds[i].curve.indices[j];
-				}
-			}
+			if (bounds[i].loop.size() > maxTeam) maxTeam=bounds[i].loop.size();
 		}
 
 		std::vector<std::vector<glm::dvec3>> boundingGroups;
 
-			// We group each point with their boundary
+		// We group each point with their boundary
 
 		for (int r = 0; r < maxTeam; r++)
 		{
 			std::vector<glm::dvec3> boundingTemp = std::vector<glm::dvec3>();
 			for (size_t i = 0; i < bounds.size(); i++)
 			{
-				for (size_t j = 0; j < bounds[i].curve.points.size(); j++)
+				if ( r >= bounds[i].loop.size()) continue;
+				for (size_t j = 0; j < bounds[i].loop[r].size(); j++)
 				{
-					if (bounds[i].curve.indices[j] == r)
-					{
-						boundingTemp.push_back(bounds[i].curve.points[j]);
-					}
+						boundingTemp.push_back(bounds[i].loop[r][j]);
 				}
 			}
-			boundingGroups.push_back(boundingTemp);
 		}
 
 		int repeats = 0;
@@ -442,7 +422,7 @@ namespace webifc::geometry
 	}
 
 		// TODO: review and simplify
-	inline void TriangulateExtrusion(IfcGeometry &geometry, std::vector<IfcBound3D> &bounds, IfcSurface &surface)
+	inline void TriangulateExtrusion(IfcGeometry &geometry, std::vector<IfcBound<3>> &bounds, IfcSurface &surface)
 	{
 			// NO EXAMPLE FILES ABOUT THIS CASE
 
@@ -451,64 +431,66 @@ namespace webifc::geometry
 		double len = surface.ExtrusionSurface.Length;
 		glm::dvec3 dir = surface.ExtrusionSurface.Direction;
 
-		if (!surface.ExtrusionSurface.Profile.isComposite)
+		if (surface.ExtrusionSurface.Profile.isType(typeid(IfcProfile<2>)))
 		{
-			for (size_t j = 0; j < surface.ExtrusionSurface.Profile.curve.points.size() - 1; j++)
+			IfcProfile<2> profile = surface.ExtrusionSurface.Profile;
+			for (size_t j = 0; j < profile.curve.size() - 1; j++)
 			{
 				int j2 = j + 1;
 
-				double npx = surface.ExtrusionSurface.Profile.curve.points[j].x + dir.x * len;
-				double npy = surface.ExtrusionSurface.Profile.curve.points[j].y + dir.y * len;
+				double npx = profile.curve[j].x + dir.x * len;
+				double npy = profile.curve[j].y + dir.y * len;
 				double npz = dir.z * len;
 				glm::dvec3 nptj1 = glm::dvec3(
 					npx,
 					npy,
 					npz);
-				npx = surface.ExtrusionSurface.Profile.curve.points[j2].x + dir.x * len;
-				npy = surface.ExtrusionSurface.Profile.curve.points[j2].y + dir.y * len;
+				npx = profile.curve[j2].x + dir.x * len;
+				npy = profile.curve[j2].y + dir.y * len;
 				npz = dir.z * len;
 				glm::dvec3 nptj2 = glm::dvec3(
 					npx,
 					npy,
 					npz);
 				geometry.AddFace(
-					glm::dvec3(surface.ExtrusionSurface.Profile.curve.points[j].x,surface.ExtrusionSurface.Profile.curve.points[j].y, 0),
-					glm::dvec3(surface.ExtrusionSurface.Profile.curve.points[j2].x,surface.ExtrusionSurface.Profile.curve.points[j2].y, 0),
+					glm::dvec3(profile.curve[j].x,profile.curve[j].y, 0),
+					glm::dvec3(profile.curve[j2].x,profile.curve[j2].y, 0),
 					nptj1);
 				geometry.AddFace(
-					glm::dvec3(surface.ExtrusionSurface.Profile.curve.points[j2].x,surface.ExtrusionSurface.Profile.curve.points[j2].y, 0),
+					glm::dvec3(profile.curve[j2].x,profile.curve[j2].y, 0),
 					nptj2,
 					nptj1);
 			}
 		}
 		else
 		{
-			for (size_t i = 0; i < surface.ExtrusionSurface.Profile.profiles.size(); i++)
+			std::vector<IfcProfile<2>> profiles = surface.ExtrusionSurface.Profile;
+			for (auto profile : profiles)
 			{
-				for (size_t j = 0; j < surface.ExtrusionSurface.Profile.profiles[i].curve.points.size() - 1; j++)
+				for (size_t j = 0; j < profile.curve.size() - 1; j++)
 				{
 					int j2 = j + 1;
 
-					double npx = surface.ExtrusionSurface.Profile.profiles[i].curve.points[j].x + dir.x * len;
-					double npy = surface.ExtrusionSurface.Profile.profiles[i].curve.points[j].y + dir.y * len;
+					double npx = profile.curve[j].x + dir.x * len;
+					double npy = profile.curve[j].y + dir.y * len;
 					double npz = dir.z * len;
 					glm::dvec3 nptj1 = glm::dvec3(
 						npx,
 						npy,
 						npz);
-					npx = surface.ExtrusionSurface.Profile.profiles[i].curve.points[j2].x + dir.x * len;
-					npy = surface.ExtrusionSurface.Profile.profiles[i].curve.points[j2].y + dir.y * len;
+					npx = profile.curve[j2].x + dir.x * len;
+					npy = profile.curve[j2].y + dir.y * len;
 					npz = dir.z * len;
 					glm::dvec3 nptj2 = glm::dvec3(
 						npx,
 						npy,
 						npz);
 					geometry.AddFace(
-						glm::dvec3(surface.ExtrusionSurface.Profile.profiles[i].curve.points[j].x,surface.ExtrusionSurface.Profile.profiles[i].curve.points[j].y, 0),
-						glm::dvec3(surface.ExtrusionSurface.Profile.profiles[i].curve.points[j2].x,surface.ExtrusionSurface.Profile.profiles[i].curve.points[j2].y, 0),
+						glm::dvec3(profile.curve[j].x,profile.curve[j].y, 0),
+						glm::dvec3(profile.curve[j2].x,profile.curve[j2].y, 0),
 						nptj1);
 					geometry.AddFace(
-						glm::dvec3(surface.ExtrusionSurface.Profile.profiles[i].curve.points[j2].x,surface.ExtrusionSurface.Profile.profiles[i].curve.points[j2].y, 0),
+						glm::dvec3(profile.curve[j2].x,profile.curve[j2].y, 0),
 						nptj2,
 						nptj1);
 				}
@@ -592,7 +574,7 @@ namespace webifc::geometry
 	}
 
 		// TODO: review and simplify
-	inline void TriangulateBspline(IfcGeometry &geometry, std::vector<IfcBound3D> &bounds, IfcSurface &surface)
+	inline void TriangulateBspline(IfcGeometry &geometry, std::vector<IfcBound<3>> &bounds, IfcSurface &surface)
 	{
 			//			double limit = 1e-4;
 
@@ -658,11 +640,13 @@ namespace webifc::geometry
 			std::vector<std::vector<Point>> uvBoundaryValues;
 
 			std::vector<Point> points;
-			for (size_t j = 0; j < bounds[0].curve.points.size(); j++)
-			{
-				glm::dvec3 pt = bounds[0].curve.points[j];
-				glm::dvec2 pInv = BSplineInverseEvaluation(pt, srf);
-				points.push_back({pInv.x, pInv.y});
+			for (auto c : bounds[0].loop) {
+				for (size_t j = 0; j < c.size(); j++)
+				{
+					glm::dvec3 pt = c[j];
+					glm::dvec2 pInv = BSplineInverseEvaluation(pt, srf);
+					points.push_back({pInv.x, pInv.y});
+				}
 			}
 			uvBoundaryValues.push_back(points);
 

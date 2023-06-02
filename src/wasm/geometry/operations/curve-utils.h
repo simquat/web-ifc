@@ -290,10 +290,8 @@ namespace webifc::geometry {
 		{
 			c.push_back(c[0]);
 
-			if (MatrixFlipsTriangles(placement))
-			{
-				c.Invert();
-			}
+			if (MatrixFlipsTriangles(placement)) std::reverse(c.begin(), c.end());
+			
 		}
 
 		return c;
@@ -324,11 +322,8 @@ namespace webifc::geometry {
 		c.push_back(tl);
 		c.push_back(bl);
 
-		if (MatrixFlipsTriangles(placement))
-		{
-			c.Invert();
-		}
-
+		if (MatrixFlipsTriangles(placement)) std::reverse(c.begin(), c.end());
+		
 		return c;
 	}
 

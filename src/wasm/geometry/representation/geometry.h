@@ -29,7 +29,8 @@ namespace webifc::geometry {
 			void operator=(T2 t) { option2=t; has2=true; }
 			operator T1() { return option1; }
 			operator T2() { return option2; }
-			std::type_index GetType() { if (has1) return typeid(has1); else return typeid(has2); }
+			bool isType(const std::type_index type) {  if (has1 && std::type_index(typeid(has1)) == type) return true; else if (has2 && std::type_index(typeid(has2)) == type) return true; else return false; }
+
 		private:
 			T1 option1;
 			T2 option2;
@@ -44,10 +45,11 @@ namespace webifc::geometry {
 	{
 			IfcCurve<N> curve;
 			std::vector<IfcCurve<N>> voids;
-			std::vector<IfcProfile<N>> composites;
 	};
 
-	template <size_t N> using IfcLoop = Select<IfcCurve<N>,std::vector<IfcCurve<N>>>;
+	template <size_t N> using IfcProfileDef  = Select< std::vector<IfcProfile<N>>, IfcProfile<N> >;
+	
+	template <size_t N> using IfcLoop = std::vector<IfcCurve<N>>;
 
 
 	enum class IfcBoundType
@@ -61,7 +63,7 @@ namespace webifc::geometry {
 	{
 		IfcBoundType type;
 		bool orientation;
-		IfcLoop<N> looop;
+		IfcLoop<N> loop;
 	};
 
 	const static std::unordered_map<std::string, int> Horizontal_alignment_type{
@@ -131,14 +133,14 @@ namespace webifc::geometry {
 		{
 			bool Active = false;
 			glm::dmat4 Direction;
-			IfcProfile<2> Profile;
+			IfcProfileDef<3> Profile;
 		};
 
 		struct Extrusion
 		{
 			bool Active = false;
 			glm::dvec3 Direction;
-			IfcProfile<2> Profile;
+			IfcProfileDef<2> Profile;
 			double Length;
 		};
 

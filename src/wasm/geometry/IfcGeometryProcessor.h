@@ -52,8 +52,8 @@ namespace webifc::geometry
         uint16_t _circleSegments;
         glm::dmat4 _coordinationMatrix = glm::dmat4(1.0);
         void AddComposedMeshToFlatMesh(IfcFlatMesh &flatMesh, const IfcComposedMesh &composedMesh, const glm::dmat4 &parentMatrix = glm::dmat4(1), const glm::dvec4 &color = glm::dvec4(1, 1, 1, 1), bool hasColor = false);
+        void ReadIndexedPolygonalFace(uint32_t expressID, std::vector<IfcBound<2>> &bounds, const std::vector<glm::dvec3> &points)
         std::vector<uint32_t> Read2DArrayOfThreeIndices();
-        void ReadIndexedPolygonalFace(uint32_t expressID, std::vector<IfcBound3D> &bounds, const std::vector<glm::dvec3> &points);
   };
   
 }
