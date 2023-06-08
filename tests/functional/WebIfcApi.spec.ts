@@ -164,6 +164,12 @@ describe('WebIfcApi reading methods', () => {
         let newEID = ifcApi.IncrementMaxExpressID(tmpModelID, 2);
         expect(newEID).toBe(maxEID + 2);
     });
+     test('can use the guid->expressID map', () => {
+        let eid = ifcApi.GetExpressIdFromGuid(modelID,'39ashYNBDEDR$HhFzW6w9a');
+        expect(eid).toBe(138);
+        let guid = ifcApi.GetGuidFromExpressId(modelID,138);
+        expect(guid).toBe('39ashYNBDEDR$HhFzW6w9a');
+    });
     test('Can get header information', () => {
         const descriptionLine : any = ifcApi.GetHeaderLine(modelID, WebIFC.FILE_DESCRIPTION );
         const nameLine : any = ifcApi.GetHeaderLine(modelID, WebIFC.FILE_NAME );
@@ -549,6 +555,13 @@ describe('creating ifc', () => {
         expect(type.type).toBe(WebIFC.REAL);
         expect(type.constructor.name).toBe('IfcReal');
         expect(type.value).toBe(1.0);
+    });
+
+    test('can delete ifc line', () => {
+        let entity: IfcLineObject  = ifcApi.CreateIfcEntity(modelID, WebIFC.IFCCARTESIANPOINT, [new IFC2X3.IfcLengthMeasure(5), new IFC2X3.IfcLengthMeasure(5), new IFC2X3.IfcLengthMeasure(5)]);
+        ifcApi.WriteLine(modelID, entity);
+        ifcApi.DeleteLine(modelID,entity.expressID);
+        expect(ifcApi.GetLine(modelID,entity.expressID)).toBe(undefined);
     });
 
     

@@ -85,7 +85,6 @@ namespace webifc::geometry {
 		{"CLOTHOID", 4} //ToDo
 	};				
 
-
 	template <size_t N> using IfcAlignmentSegment = std::vector<IfcCurve<N>>;
 
 	template <size_t N>
@@ -97,8 +96,9 @@ namespace webifc::geometry {
 	
 	//old geometry definitions below
 
-	
-		const double EXTRUSION_DISTANCE_HALFSPACE_M = 50;
+
+		const double EXTRUSION_DISTANCE_HALFSPACE_M = 100;
+
 
 		struct IfcSegmentIndexSelect
 		{
